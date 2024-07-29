@@ -1,21 +1,27 @@
+# streamlit_app.py
+
 import subprocess
 import sys
 import os
 
-# Function to install packages
+# Function to install required packages
 def install_packages():
-    requirements_path = 'requirements.txt'
-    if os.path.exists(requirements_path):
+    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+    try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_path])
-    else:
-        raise FileNotFoundError(f"{requirements_path} not found")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install packages: {e}")
+        sys.exit(1)
 
-# Install necessary packages
-install_packages()
+# Try to import required packages and install if not available
+try:
+    import streamlit as st
+    import cv2
+except ImportError:
+    install_packages()
+    import streamlit as st
+    import cv2
 
-# Import installed packages
-import cv2
-import streamlit as st
 import shlex
 import shutil
 
@@ -110,4 +116,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# Run the app with `streamlit run app.py`
+# Run the app with `streamlit run streamlit_app.py`
