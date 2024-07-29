@@ -3,6 +3,7 @@ import subprocess
 import shlex
 import os
 import shutil
+import cv2
 
 def remove_numbers(input_string):
     return input_string.translate(str.maketrans('', '', '0123456789'))
