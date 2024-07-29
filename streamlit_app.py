@@ -1,29 +1,9 @@
-# streamlit_app.py
-
+import streamlit as st
+import cv2
 import subprocess
 import sys
-import os
-import cv2
-
-# Function to install required packages
-def install_packages():
-    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_path])
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to install packages: {e}")
-        sys.exit(1)
-
-# Try to import required packages and install if not available
-try:
-    import streamlit as st
-    import cv2
-except ImportError:
-    install_packages()
-    import streamlit as st
-    import cv2
-
 import shlex
+import os
 import shutil
 
 def remove_numbers(input_string):
@@ -35,10 +15,6 @@ def detect_labels(weights_path, confidence_threshold, image_path):
         raise FileNotFoundError(f"Weights file not found: {weights_path}")
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image file not found: {image_path}")
-
-    # Ensure cv2 is installed in the environment where the script is executed
-    command = f"{sys.executable} -m pip install opencv-python-headless"
-    subprocess.check_call(shlex.split(command))
 
     # Run the YOLOv7 detection script
     command = f"python yolov7/detect1.py --weights \"{weights_path}\" --conf {confidence_threshold} --source \"{image_path}\""
@@ -123,3 +99,4 @@ if uploaded_file is not None:
         st.error(f"Error: {str(e)}")
 
 # Run the app with `streamlit run streamlit_app.py`
+
