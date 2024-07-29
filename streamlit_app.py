@@ -1,9 +1,23 @@
-import streamlit as st
 import subprocess
-import shlex
+import sys
 import os
-import shutil
+
+# Function to install packages
+def install_packages():
+    requirements_path = 'requirements.txt'
+    if os.path.exists(requirements_path):
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_path])
+    else:
+        raise FileNotFoundError(f"{requirements_path} not found")
+
+# Install necessary packages
+install_packages()
+
+# Import installed packages
 import cv2
+import streamlit as st
+import shlex
+import shutil
 
 def remove_numbers(input_string):
     return input_string.translate(str.maketrans('', '', '0123456789'))
