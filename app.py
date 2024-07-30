@@ -35,6 +35,10 @@ def trigger_kaggle_notebook(api_key, version_number, kernel_slug):
             'enable_gpu': 'true'  # Request GPU usage
         }
     )
+
+    # Print the entire response for debugging
+    st.write("Kaggle API Response:", response.json())
+
     if response.status_code != 200:
         st.error(f"Failed to push to Kaggle: {response.json()}")
         return None
@@ -73,14 +77,16 @@ if version_number:
             kaggle_username = st.secrets["kaggle"]["username"]
             kaggle_api_key = st.secrets["kaggle"]["key"]
 
-            # Define a unique slug for the kernel
-            kernel_slug = f"yolov7-training-{version_number.replace('.', '-')}"
+            # Define the slug for the existing kernel
+            kernel_slug = "yolov7-honeybee"
             
             # Trigger the Kaggle notebook
             response = trigger_kaggle_notebook(kaggle_api_key, version_number, kernel_slug)
             if response is None:
                 st.error("Failed to push the notebook to Kaggle.")
             else:
+                st.write(response)  # Debug the response
+
                 if 'slug' not in response:
                     st.error("Unexpected response structure: 'slug' not found.")
                     st.write(response)
