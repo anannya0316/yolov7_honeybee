@@ -37,7 +37,7 @@ st.title("YOLOv7 Training Interface")
 # Roboflow API credentials
 rf_api_key = "YvqMXpoGrLg1JSJ7URgW"
 workspace_name = "anannya-c7n8q"
-project_name = "merged-images-5t6hv"
+project_name = "bee-classification-dd6lv"
 
 # Ask user for the version number
 version_number = st.text_input("Version Number")
