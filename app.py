@@ -26,8 +26,12 @@ def trigger_kaggle_notebook(api_key, version_number):
             'file': ('kaggle_notebook_temp.py', open('kaggle_notebook_temp.py', 'rb'), 'text/plain')
         },
         data={
-            'kernel_slug': 'yolov7_training',  # Change this to a unique identifier for your kernel
-            'public': 'false',
+            'slug': 'yolov7_training',  # Change this to a unique identifier for your kernel
+            'title': 'YOLOv7 Training',
+            'id': '',  # Leave empty to create a new kernel
+            'language': 'python',
+            'kernel_type': 'notebook',
+            'is_private': 'true',
             'enable_gpu': 'true'  # Request GPU usage
         }
     )
@@ -71,7 +75,7 @@ if version_number:
             # Trigger the Kaggle notebook
             response = trigger_kaggle_notebook(kaggle_api_key, version_number)
             st.write(response)
-            notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{response['id']}"
+            notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{response['slug']}"
             st.write(f"Notebook URL: {notebook_url}")
 
             st.success("Training has started on Kaggle! Check your Kaggle account for progress.")
