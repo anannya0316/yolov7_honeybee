@@ -4,7 +4,7 @@ import os
 import time
 
 # Function to trigger the Kaggle notebook
-def trigger_kaggle_notebook(api_key, version_number):
+def trigger_kaggle_notebook(api_key, version_number, kernel_slug):
     # Read the Kaggle notebook template
     with open("kaggle_notebook.py", "r") as file:
         kaggle_notebook_code = file.read()
@@ -26,7 +26,7 @@ def trigger_kaggle_notebook(api_key, version_number):
             'file': ('kaggle_notebook_temp.py', open('kaggle_notebook_temp.py', 'rb'), 'text/plain')
         },
         data={
-            'slug': 'yolov7_training',  # Change this to a unique identifier for your kernel
+            'slug': kernel_slug,  # Unique identifier for your kernel
             'title': 'YOLOv7 Training',
             'id': '',  # Leave empty to create a new kernel
             'language': 'python',
@@ -37,6 +37,7 @@ def trigger_kaggle_notebook(api_key, version_number):
     )
     if response.status_code != 200:
         st.error(f"Failed to push to Kaggle: {response.json()}")
+        return None
     return response.json()
 
 # Function to check the status of the Kaggle notebook
@@ -72,18 +73,29 @@ if version_number:
             kaggle_username = st.secrets["kaggle"]["username"]
             kaggle_api_key = st.secrets["kaggle"]["key"]
 
+            # Define a unique slug for the kernel
+            kernel_slug = f"yolov7-training-{version_number.replace('.', '-')}"
+            
             # Trigger the Kaggle notebook
-            response = trigger_kaggle_notebook(kaggle_api_key, version_number)
-            st.write(response)
-            notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{response['slug']}"
+            response = trigger_kaggle_notebook(kaggle_api_key, version_number, kernel_slug)
+            if response is None:
+                st.error("Failed to push the notebook to Kaggle.")
+                return
+
+            if 'slug' not in response:
+                st.error("Unexpected response structure: 'slug' not found.")
+                st.write(response)
+                return
+
+            notebook_slug = response['slug']
+            notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{notebook_slug}"
             st.write(f"Notebook URL: {notebook_url}")
 
             st.success("Training has started on Kaggle! Check your Kaggle account for progress.")
             
             # Poll the Kaggle API to check the status
-            kernel_slug = 'yolov7_training'  # Use the same kernel_slug as above
             while True:
-                status = check_notebook_status(kernel_slug, kaggle_api_key)
+                status = check_notebook_status(notebook_slug, kaggle_api_key)
                 st.write(f"Notebook Status: {status['status']}")
                 if status['status'] == 'complete':
                     st.success("Training is complete!")
@@ -94,7 +106,7 @@ if version_number:
                 time.sleep(60)  # Wait for 1 minute before checking again
 
             # Download the weights file
-            file_url = f"https://www.kaggle.com/{kaggle_username}/kernels/output/{kernel_slug}/yolov7_weights.zip"
+            file_url = f"https://www.kaggle.com/{kaggle_username}/kernels/output/{notebook_slug}/yolov7_weights.zip"
             save_path = os.path.join(os.path.expanduser('~/Downloads'), 'yolov7_weights.zip')
             download_weights(file_url, save_path)
 
