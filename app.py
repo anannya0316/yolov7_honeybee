@@ -80,37 +80,35 @@ if version_number:
             response = trigger_kaggle_notebook(kaggle_api_key, version_number, kernel_slug)
             if response is None:
                 st.error("Failed to push the notebook to Kaggle.")
-                return
+            else:
+                if 'slug' not in response:
+                    st.error("Unexpected response structure: 'slug' not found.")
+                    st.write(response)
+                else:
+                    notebook_slug = response['slug']
+                    notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{notebook_slug}"
+                    st.write(f"Notebook URL: {notebook_url}")
 
-            if 'slug' not in response:
-                st.error("Unexpected response structure: 'slug' not found.")
-                st.write(response)
-                return
+                    st.success("Training has started on Kaggle! Check your Kaggle account for progress.")
+                    
+                    # Poll the Kaggle API to check the status
+                    while True:
+                        status = check_notebook_status(notebook_slug, kaggle_api_key)
+                        st.write(f"Notebook Status: {status['status']}")
+                        if status['status'] == 'complete':
+                            st.success("Training is complete!")
+                            break
+                        elif status['status'] == 'error':
+                            st.error("An error occurred during training.")
+                            break
+                        time.sleep(60)  # Wait for 1 minute before checking again
 
-            notebook_slug = response['slug']
-            notebook_url = f"https://www.kaggle.com/{kaggle_username}/kernels/edit/{notebook_slug}"
-            st.write(f"Notebook URL: {notebook_url}")
+                    # Download the weights file
+                    file_url = f"https://www.kaggle.com/{kaggle_username}/kernels/output/{notebook_slug}/yolov7_weights.zip"
+                    save_path = os.path.join(os.path.expanduser('~/Downloads'), 'yolov7_weights.zip')
+                    download_weights(file_url, save_path)
 
-            st.success("Training has started on Kaggle! Check your Kaggle account for progress.")
-            
-            # Poll the Kaggle API to check the status
-            while True:
-                status = check_notebook_status(notebook_slug, kaggle_api_key)
-                st.write(f"Notebook Status: {status['status']}")
-                if status['status'] == 'complete':
-                    st.success("Training is complete!")
-                    break
-                elif status['status'] == 'error':
-                    st.error("An error occurred during training.")
-                    break
-                time.sleep(60)  # Wait for 1 minute before checking again
-
-            # Download the weights file
-            file_url = f"https://www.kaggle.com/{kaggle_username}/kernels/output/{notebook_slug}/yolov7_weights.zip"
-            save_path = os.path.join(os.path.expanduser('~/Downloads'), 'yolov7_weights.zip')
-            download_weights(file_url, save_path)
-
-            st.success("Training and download complete! Check your Downloads folder for the weights.")
+                    st.success("Training and download complete! Check your Downloads folder for the weights.")
         
         except KeyError as e:
             st.error(f"Missing secret: {e}. Please check your Streamlit secrets configuration.")
