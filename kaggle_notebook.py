@@ -15,7 +15,7 @@ import torch
 # Set the necessary variables (these will be passed from the Streamlit app)
 YOUR_ROBOFLOW_API_KEY = "YvqMXpoGrLg1JSJ7URgW"
 WORKSPACE_NAME = "anannya-c7n8q"
-PROJECT_NAME = "merged-images-5t6hv"
+PROJECT_NAME = "bee-classification-dd6lv"
 VERSION_NUMBER = "VERSION_NUMBER_PLACEHOLDER"
 
 # Authenticate with Roboflow
