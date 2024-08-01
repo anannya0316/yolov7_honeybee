@@ -206,7 +206,7 @@ else:
                 if existing_classification:
                     st.markdown(f"<large>**Current Classification:** {existing_classification['classification']}</large>", unsafe_allow_html=True)
                     change_classification = st.radio(
-                        f"<medium>Do you want to change the classification for {key}?</medium>",
+                        f"Do you want to change the classification for {key}?",
                         ('Keep Existing', 'Change'),
                         index=0
                     )
