@@ -5,14 +5,12 @@ from io import BytesIO
 from PIL import Image
 from datetime import datetime
 import os
-import zipfile
-import shutil
 
-# Access secrets from Streamlit's secrets management
-AWS_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
-AWS_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
-AWS_S3_SECRET_KEY = st.secrets["aws"]["secret_key"]
-AWS_S3_REGION_NAME = st.secrets["aws"]["region_name"]
+# Local configuration for S3 and MongoDB
+IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
+IMAGE_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
+IMAGE_S3_SECRET_KEY = st.secrets["aws"]["secret_key"]
+IMAGE_S3_REGION_NAME = st.secrets["aws"]["region_name"]
 
 MONGODB_URI = st.secrets["mongodb"]["uri"]
 
@@ -25,9 +23,9 @@ classification_collection = db['classification_of_results']
 # S3 Client
 s3_client = boto3.client(
     's3',
-    aws_access_key_id=AWS_S3_ACCESS_KEY,
-    aws_secret_access_key=AWS_S3_SECRET_KEY,
-    region_name=AWS_S3_REGION_NAME
+    aws_access_key_id=IMAGE_S3_ACCESS_KEY,
+    aws_secret_access_key=IMAGE_S3_SECRET_KEY,
+    region_name=IMAGE_S3_REGION_NAME
 )
 
 def list_images_from_s3(bucket_name):
@@ -55,32 +53,50 @@ def fetch_image_from_s3(bucket_name, key):
     response = s3_client.get_object(Bucket=bucket_name, Key=key)
     return response['Body'].read()
 
-def create_zip_file(image_keys):
-    """Create a zip file for bad images."""
-    zip_filename = "bad_images.zip"
-    temp_folder = "temp_images"
+def download_images_to_folders(image_keys, base_download_path, max_images_per_folder=100):
+    """Download images to local folders, limiting to max_images_per_folder per folder."""
+    os.makedirs(base_download_path, exist_ok=True)
+    
+    # Create a set to keep track of all existing images to avoid duplicates
+    existing_images = set()
+    
+    # Initialize folder counter and image counter
+    folder_counter = 1
+    image_counter = 0
+    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+    os.makedirs(current_folder, exist_ok=True)
+    
+    for key in image_keys:
+        try:
+            filename = os.path.basename(key)
+            
+            # Check for duplicate images using a set
+            if filename in existing_images:
+                st.info(f"Duplicate image detected: {filename}. Skipping download.")
+                continue
+            
+            local_filename = os.path.join(current_folder, filename)
 
-    # Ensure the temporary directory exists
-    os.makedirs(temp_folder, exist_ok=True)
+            # Fetch the image from S3
+            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
+            img = Image.open(BytesIO(image_data))
+            img.save(local_filename)
+            
+            # Update existing images set and counters
+            existing_images.add(filename)
+            image_counter += 1
+            
+            # Check if the current folder has reached the maximum number of images
+            if image_counter >= max_images_per_folder:
+                folder_counter += 1
+                current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+                os.makedirs(current_folder, exist_ok=True)
+                image_counter = 0  # Reset counter for the new folder
 
-    with zipfile.ZipFile(zip_filename, 'w') as zipf:
-        for key in image_keys:
-            try:
-                # Fetch the image from S3
-                image_data = fetch_image_from_s3(AWS_S3_BUCKET_NAME, key)
-                
-                img = Image.open(BytesIO(image_data))
-                img_path = os.path.join(temp_folder, os.path.basename(key))  # Temporary file path
-                img.save(img_path)
-                zipf.write(img_path, os.path.basename(key))  # Write to the zip file
-                os.remove(img_path)  # Clean up the temporary image file
-            except Exception as e:
-                st.error(f"Failed to fetch image {key}: {str(e)}")
-                
-    # Cleanup the temporary directory
-    shutil.rmtree(temp_folder)
+        except Exception as e:
+            st.error(f"Failed to download image {key}: {str(e)}")
 
-    return zip_filename
+    st.success(f"Downloads completed. Total folders created: {folder_counter}")
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -138,7 +154,7 @@ def fetch_classification_counts():
 st.title("Beehive Image Classification and Management")
 
 # Fetch image keys from S3 bucket
-image_keys = list_images_from_s3(AWS_S3_BUCKET_NAME)
+image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
 
 # Extract available dates from image keys
 available_dates = extract_dates_from_keys(image_keys)
@@ -183,7 +199,7 @@ else:
         # Fetch the selected image
         if 0 <= st.session_state.image_index < len(filtered_keys):
             key = filtered_keys[st.session_state.image_index]
-            image_data = fetch_image_from_s3(AWS_S3_BUCKET_NAME, key)
+            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
             img = Image.open(BytesIO(image_data))
             st.image(img, caption=f"**Image:** {key}", use_column_width=True)
 
@@ -207,17 +223,10 @@ else:
                     st.markdown(f"<large>**Current Classification:** {existing_classification['classification']}</large>", unsafe_allow_html=True)
                     st.markdown(f"<medium>Do you want to change the classification for {key}?</medium>",unsafe_allow_html=True)
                     change_classification = st.radio(
-                        
-                        # f"Do you want to change the classification for {key}?",
                         "Select an option",
                         ('Keep Existing', 'Change'),
                         index=0
                     )
-                    # change_classification = st.radio(
-                    #     f"Do you want to change the classification for {key}?",
-                    #     ('Keep Existing', 'Change'),
-                    #     index=0
-                    # )
                     if change_classification == 'Change':
                         new_classification = st.radio(
                             f"New Classification for {key}",
@@ -262,18 +271,14 @@ else:
                 st.write(f"Total Bad Classifications: {bad_count}")
 
         with col2:
-            if st.button("Create ZIP and Download Bad Images"):
+            if st.button("Download Bad Images to Local Folders"):
                 # Fetch all bad image keys from MongoDB
                 bad_image_keys = fetch_bad_images_from_mongo()
                 if not bad_image_keys:
                     st.warning("No bad images found in the MongoDB collection.")
                 else:
-                    # Create and download the ZIP file
-                    zip_filename = create_zip_file(bad_image_keys)
-                    with open(zip_filename, 'rb') as f:
-                        st.download_button(
-                            label="Download Bad Images",
-                            data=f,
-                            file_name=zip_filename,
-                            mime='application/zip'
-                        )
+                    # Define the base download path (your local Downloads folder)
+                    base_download_path = os.path.expanduser("~/Downloads/wrong_classification")
+
+                    # Download images to local folders, ensuring no duplicates
+                    download_images_to_folders(bad_image_keys, base_download_path, max_images_per_folder=100)
