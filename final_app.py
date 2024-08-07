@@ -5,6 +5,7 @@ from io import BytesIO
 from PIL import Image
 from datetime import datetime
 import os
+from pathlib import Path
 
 # Local configuration for S3 and MongoDB
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
@@ -52,9 +53,6 @@ def fetch_image_from_s3(bucket_name, key):
     """Fetch an image from S3 by its key."""
     response = s3_client.get_object(Bucket=bucket_name, Key=key)
     return response['Body'].read()
-
-from pathlib import Path
-import os
 
 def get_downloads_folder():
     """Get the path to the user's Downloads folder."""
@@ -114,8 +112,6 @@ def download_images_to_folders(image_keys, max_images_per_folder=100):
     for root, dirs, files in os.walk(base_download_path):
         for file in files:
             st.write(os.path.join(root, file))
-
-
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -237,67 +233,33 @@ else:
 
                 # Check for existing classification
                 existing_classification = get_existing_classification(key)
-
                 if existing_classification:
-                    st.markdown(f"<large>**Current Classification:** {existing_classification['classification']}</large>", unsafe_allow_html=True)
-                    st.markdown(f"<medium>Do you want to change the classification for {key}?</medium>",unsafe_allow_html=True)
-                    change_classification = st.radio(
-                        "Select an option",
-                        ('Keep Existing', 'Change'),
-                        index=0
-                    )
-                    if change_classification == 'Change':
-                        new_classification = st.radio(
-                            f"New Classification for {key}",
-                            ('Good', 'Bad'),
-                            index=0
-                        )
-                        if st.button(f"Update Classification for {key}", key=f"update_{key}"):
-                            # Update classification
-                            update_classification_in_mongo(key, {
-                                "s3_filename": key,
-                                "classification": new_classification,
-                                "user_id": details.get('userid', 'N/A'),
-                                "uploaded_at": details.get('uploaded_at', 'N/A'),
-                                "timestamp": details.get('timestamp', 'N/A'),
-                                "language": details.get('language', 'N/A'),
-                                "predictions": details.get('detection_results', [])
-                            })
-                            st.success(f"Classification for {key} updated successfully to {new_classification}.")
-
+                    st.write(f"### Existing Classification: {existing_classification['classification']}")
                 else:
-                    # Classification Section
-                    st.write("### Classify the Image")
-                    classification = st.radio(f"Classification for {key}", ('Good', 'Bad'), index=0)
+                    st.write("No existing classification found.")
+                    
+                # User input for classification
+                classification = st.selectbox("Classify this image:", ["Good", "Bad"])
+                
+                # Submit button to save classification
+                if st.button("Submit Classification"):
+                    new_classification = {
+                        "s3_filename": key,
+                        "classification": classification
+                    }
+                    save_classification_to_mongo(key, classification, details)
+                    st.success("Classification saved successfully.")
 
-                    # Button to save classification
-                    if st.button(f"Save Classification for {key}", key=f"save_{key}"):
-                        save_classification_to_mongo(key, classification, details)
-                        st.success(f"Classification for {key} saved successfully as {classification}.")
+        # Download images to local machine
+        if st.button("Download Bad Images"):
+            bad_image_keys = fetch_bad_images_from_mongo()
+            if bad_image_keys:
+                download_images_to_folders(bad_image_keys)
             else:
-                st.write("No detection results available.")
+                st.warning("No bad images found for download.")
 
-        # Only show classification and download buttons once
-        st.write("---")  # Add a separator for clarity
-
-        # Horizontal Layout for buttons
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("Show Total Classifications"):
-                good_count, bad_count = fetch_classification_counts()
-                st.write(f"Total Good Classifications: {good_count}")
-                st.write(f"Total Bad Classifications: {bad_count}")
-
-        with col2:
-            if st.button("Download Bad Images to Local Folders"):
-                # Fetch all bad image keys from MongoDB
-                bad_image_keys = fetch_bad_images_from_mongo()
-                if not bad_image_keys:
-                    st.warning("No bad images found in the MongoDB collection.")
-                else:
-                    # Define the base download path (your local Downloads folder)
-                    base_download_path = os.path.expanduser("~/Downloads/wrong_classification")
-
-                    # Download images to local folders, ensuring no duplicates
-                    download_images_to_folders(bad_image_keys, base_download_path, max_images_per_folder=100)
+        # Display classification counts
+        good_count, bad_count = fetch_classification_counts()
+        st.write(f"### Classification Counts")
+        st.write(f"**Good Images:** {good_count}")
+        st.write(f"**Bad Images:** {bad_count}")
