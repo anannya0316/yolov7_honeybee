@@ -40,6 +40,7 @@ def list_images_from_s3(bucket_name):
         if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
             images.append(key)
     
+    st.write("Retrieved image keys:", images)  # Debug: Show all keys
     return images
 
 def fetch_image_from_s3(bucket_name, key):
@@ -54,14 +55,15 @@ def extract_dates_from_keys(keys):
         # Assuming the filename format is "userid/images/YYYYMMDDHHMMSS.png"
         parts = key.split('/')
         if len(parts) > 1:
-            # Change: Use the last part of the key for consistent parsing
             filename = parts[-1]
             date_str = filename[:8]  # Extract YYYYMMDD from the filename
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
                 dates.add(date_obj)
             except ValueError:
-                pass  # Skip any filenames that don't match the date format
+                st.write(f"Skipping non-matching date format for key: {key}")  # Debug: Show skipped keys
+                pass
+    st.write("Extracted Dates:", [date.strftime("%Y-%m-%d") for date in dates])  # Debug: Show extracted dates
     return sorted(dates)
 
 # Streamlit App
@@ -84,6 +86,7 @@ else:
 
     # Filter image keys based on the selected date
     filtered_keys = [key for key in image_keys if date_str in key]
+    st.write(f"Filtered keys for date {date_str}:", filtered_keys)  # Debug: Show filtered keys
 
     # Debug: Display the number of images found for the selected date
     st.write(f"Number of images found for {date_selected.strftime('%B %d, %Y')}: {len(filtered_keys)}")
