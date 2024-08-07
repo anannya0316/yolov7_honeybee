@@ -641,15 +641,14 @@ def download_images_as_zip(good_image_keys, bad_image_keys):
                 # Add image details to DataFrame
                 details = fetch_details_from_mongo(key)
                 if details:
-                    image_details.append({
-                        "Filename": key,
-                        "Classification": "Good",
-                        "User ID": details.get('userid', 'N/A'),
-                        "Uploaded At": details.get('uploaded_at', 'N/A'),
-                        "Timestamp": details.get('timestamp', 'N/A'),
-                        "Language": details.get('language', 'N/A'),
-                        "Predictions": details.get('detection_results', [])
-                    })
+                    predictions = details.get('detection_results', [])
+                    for prediction in predictions:
+                        image_details.append({
+                            "Filename": key,
+                            "Classification": "Good",
+                            "Label": prediction.get('label', 'Unknown'),
+                            "Confidence": f"{prediction.get('percentage', 0):.2f}%"
+                        })
 
             except Exception as e:
                 st.error(f"Failed to download image {key}: {str(e)}")
@@ -667,15 +666,14 @@ def download_images_as_zip(good_image_keys, bad_image_keys):
                 # Add image details to DataFrame
                 details = fetch_details_from_mongo(key)
                 if details:
-                    image_details.append({
-                        "Filename": key,
-                        "Classification": "Bad",
-                        "User ID": details.get('userid', 'N/A'),
-                        "Uploaded At": details.get('uploaded_at', 'N/A'),
-                        "Timestamp": details.get('timestamp', 'N/A'),
-                        "Language": details.get('language', 'N/A'),
-                        "Predictions": details.get('detection_results', [])
-                    })
+                    predictions = details.get('detection_results', [])
+                    for prediction in predictions:
+                        image_details.append({
+                            "Filename": key,
+                            "Classification": "Bad",
+                            "Label": prediction.get('label', 'Unknown'),
+                            "Confidence": f"{prediction.get('percentage', 0):.2f}%"
+                        })
 
             except Exception as e:
                 st.error(f"Failed to download image {key}: {str(e)}")
@@ -769,6 +767,35 @@ def list_files_in_directory(directory_path):
         for file in files:
             files_list.append(os.path.join(root, file))
     return files_list
+
+def display_image_details(key, details):
+    """Display image details including classification and predictions."""
+    # Check if predictions are available
+    predictions = details.get('detection_results', [])
+    if predictions:
+        # Extract predictions and percentages
+        prediction_data = [
+            {
+                "Label": prediction.get('label', 'Unknown'),
+                "Confidence": f"{prediction.get('percentage', 0):.2f}%"
+            }
+            for prediction in predictions
+        ]
+
+        # Create a DataFrame for predictions
+        prediction_df = pd.DataFrame(prediction_data)
+
+        # Display table
+        st.write("### Predictions and Confidence")
+        st.table(prediction_df)
+
+    # Display current classification
+    existing_classification = get_existing_classification(key)
+    if existing_classification:
+        st.write("### Current Classification")
+        st.markdown(f"**Classification:** {existing_classification['classification']}")
+    else:
+        st.write("### No Classification Available")
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
@@ -906,67 +933,7 @@ if selected_tab == "🗂️ Image Management":
                     # Fetch and display detection results from MongoDB
                     details = fetch_details_from_mongo(key)
                     if details:
-                        st.write("### Detection Results:")
-                        predictions = details.get('detection_results', [])
-                        if predictions:
-                            for prediction in predictions:
-                                label = prediction.get('label', 'Unknown')
-                                percentage = prediction.get('percentage', 0)
-                                st.write(f"- **{label}**: {percentage}%")
-                        else:
-                            st.write("No detection results available")
-
-                        # Display a table with details
-                        st.write("### Image Details")
-                        image_details_df = pd.DataFrame([{
-                            "Filename": key,
-                            "User ID": details.get('userid', 'N/A'),
-                            "Uploaded At": details.get('uploaded_at', 'N/A'),
-                            "Timestamp": details.get('timestamp', 'N/A'),
-                            "Language": details.get('language', 'N/A'),
-                            "Predictions": details.get('detection_results', [])
-                        }])
-                        st.table(image_details_df)
-
-                        # Check for existing classification
-                        existing_classification = get_existing_classification(key)
-
-                        if existing_classification:
-                            st.markdown(f"<large>**Current Classification:** {existing_classification['classification']}</large>", unsafe_allow_html=True)
-                            st.markdown(f"<medium>Do you want to change the classification for {key}?</medium>",unsafe_allow_html=True)
-                            change_classification = st.radio(
-                                "Select an option",
-                                ('Keep Existing', 'Change'),
-                                index=0
-                            )
-                            if change_classification == 'Change':
-                                new_classification = st.radio(
-                                    f"New Classification for {key}",
-                                    ('Good', 'Bad'),
-                                    index=0
-                                )
-                                if st.button(f"Update Classification for {key}", key=f"update_{key}"):
-                                    # Update classification
-                                    update_classification_in_mongo(key, {
-                                        "s3_filename": key,
-                                        "classification": new_classification,
-                                        "user_id": details.get('userid', 'N/A'),
-                                        "uploaded_at": details.get('uploaded_at', 'N/A'),
-                                        "timestamp": details.get('timestamp', 'N/A'),
-                                        "language": details.get('language', 'N/A'),
-                                        "predictions": details.get('detection_results', [])
-                                    })
-                                    st.success(f"Classification for {key} updated successfully to {new_classification}.")
-
-                        else:
-                            # Classification Section
-                            st.write("### Classify the Image")
-                            classification = st.radio(f"Classification for {key}", ('Good', 'Bad'), index=0)
-
-                            # Button to save classification
-                            if st.button(f"Save Classification for {key}", key=f"save_{key}"):
-                                save_classification_to_mongo(key, classification, details)
-                                st.success(f"Classification for {key} saved successfully as {classification}.")
+                        display_image_details(key, details)  # Call the new function to display predictions and classification
                     else:
                         st.write("No detection results available.")
 
@@ -1013,3 +980,4 @@ if selected_tab == "📚 Training":
                 st.write(file)
 
             st.success("Zip file extracted and files listed above.")
+
