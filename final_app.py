@@ -808,7 +808,7 @@ def display_image_details(key, details):
     st.markdown(html_table, unsafe_allow_html=True)
 
     # Option to change classification without "Keep Existing"
-    st.write(f"### Current Classification: **{current_classification}**")
+    # st.write(f"### Current Classification: **{current_classification}**")
     new_classification = st.radio(
         "Select New Classification:",
         ('Good', 'Bad'),
