@@ -6,6 +6,17 @@ pymongo
 boto3
 Pillow
 
+torch
+torchvision
+Pillow
+numpy
+tqdm
+matplotlib
+streamlit
+scipy
+requests
+pyyaml
+
 
 
 # Usage: pip install -r requirements.txt
