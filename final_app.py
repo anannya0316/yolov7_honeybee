@@ -97,6 +97,13 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
             st.error(f"Failed to download image {key}: {str(e)}")
 
     st.success(f"Downloads completed. Total folders created: {folder_counter}")
+    st.write(f"Files saved to: {base_download_path}")
+    # Debug: list files in the download directory
+    st.write("Files in download directory:")
+    for root, dirs, files in os.walk(base_download_path):
+        for file in files:
+            st.write(os.path.join(root, file))
+
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
