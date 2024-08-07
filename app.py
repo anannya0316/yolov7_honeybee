@@ -30,15 +30,16 @@ s3_client = boto3.client(
 
 def list_images_from_s3(bucket_name):
     """List image files from the specified S3 bucket, excluding certain prefixes."""
-    response = s3_client.list_objects_v2(Bucket=bucket_name)
     images = []
+    paginator = s3_client.get_paginator('list_objects_v2')
     
-    # Collect all image files
-    for obj in response.get('Contents', []):
-        key = obj['Key']
-        # Filter image files, ignoring those with the prefix "qu13edjkbs"
-        if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
-            images.append(key)
+    # Paginate through all objects in the bucket
+    for page in paginator.paginate(Bucket=bucket_name):
+        for obj in page.get('Contents', []):
+            key = obj['Key']
+            # Filter image files, ignoring those with the prefix "qu13edjkbs"
+            if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
+                images.append(key)
     
     st.write("Retrieved image keys:", images)  # Debug: Show all keys
     return images
