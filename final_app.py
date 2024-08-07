@@ -772,42 +772,45 @@ def display_image_details(key, details):
     """Display image details including classification and predictions."""
     # Check if predictions are available
     predictions = details.get('detection_results', [])
-    prediction_list = []
     
-    if predictions:
-        # Extract predictions and percentages
-        prediction_list = [f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%" for prediction in predictions]
+    # Format predictions
+    prediction_list = [
+        f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
+        for prediction in predictions
+    ]
 
-    # Display table
-    st.write("### Detections and Confidence")
-    st.table({"Detections": prediction_list})
+    # Display the table
+    st.write("### Image Details")
+    
+    # Construct DataFrame for display
+    details_df = pd.DataFrame({
+        "Category": ["Detections", "Classification"],
+        "Details": [
+            ", ".join(prediction_list),
+            get_existing_classification(key).get('classification', 'Unknown')
+        ]
+    })
 
-    # Display current classification and allow changes
-    existing_classification = get_existing_classification(key)
-    if existing_classification:
-        st.write("### Current Classification")
-        st.markdown(f"**Classification:** {existing_classification['classification']}")
+    st.table(details_df)
 
-        # Option to change classification
-        new_classification = st.radio(
-            f"Change Classification for {key}",
-            ('Keep Existing', 'Good', 'Bad'),
-            index=0
-        )
-        if new_classification != 'Keep Existing':
-            if st.button(f"Update Classification for {key}"):
-                update_classification_in_mongo(key, {
-                    "s3_filename": key,
-                    "classification": new_classification,
-                    "user_id": details.get('userid', 'N/A'),
-                    "uploaded_at": details.get('uploaded_at', 'N/A'),
-                    "timestamp": details.get('timestamp', 'N/A'),
-                    "language": details.get('language', 'N/A'),
-                    "predictions": details.get('detection_results', [])
-                })
-                st.success(f"Classification for {key} updated successfully to {new_classification}.")
-    else:
-        st.write("### No Classification Available")
+    # Option to change classification
+    new_classification = st.radio(
+        "Change Classification",
+        ('Keep Existing', 'Good', 'Bad'),
+        index=0
+    )
+    if new_classification != 'Keep Existing':
+        if st.button(f"Update Classification for {key}"):
+            update_classification_in_mongo(key, {
+                "s3_filename": key,
+                "classification": new_classification,
+                "user_id": details.get('userid', 'N/A'),
+                "uploaded_at": details.get('uploaded_at', 'N/A'),
+                "timestamp": details.get('timestamp', 'N/A'),
+                "language": details.get('language', 'N/A'),
+                "predictions": details.get('detection_results', [])
+            })
+            st.success(f"Classification for {key} updated successfully to {new_classification}.")
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
