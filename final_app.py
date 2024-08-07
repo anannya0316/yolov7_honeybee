@@ -163,6 +163,10 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
 
     st.success(f"Downloads completed. Total folders created: {folder_counter}")
 
+    # Print the path where images are downloaded
+    st.write(f"Images downloaded to: {base_download_path}")
+
+
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
     # Find the document in MongoDB that matches the s3_filename
