@@ -54,7 +54,9 @@ def extract_dates_from_keys(keys):
         # Assuming the filename format is "userid/images/YYYYMMDDHHMMSS.png"
         parts = key.split('/')
         if len(parts) > 1:
-            date_str = parts[-1][:8]  # Extract YYYYMMDD from the filename
+            # Change: Use the last part of the key for consistent parsing
+            filename = parts[-1]
+            date_str = filename[:8]  # Extract YYYYMMDD from the filename
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
                 dates.add(date_obj)
@@ -116,7 +118,7 @@ else:
             st.image(img, caption=f"**Image:** {key}", use_column_width=True)
 
             # Fetch and display detection results from MongoDB
-            details = fetch_details_from_mongo(key)
+            details = detection_collection.find_one({"s3_filename": key})
             if details and details.get('detection_results'):
                 st.write("### Detection Results:")
                 predictions = details.get('detection_results', [])
