@@ -782,6 +782,10 @@ def display_image_details(key, details):
     # Join predictions into an HTML unordered list
     detections = f"<ul>{''.join(prediction_list)}</ul>"
 
+    # Fetch existing classification from MongoDB
+    existing_classification = get_existing_classification(key)
+    current_classification = existing_classification.get('classification', 'Unknown') if existing_classification else 'Unknown'
+
     # Construct HTML for the table
     html_table = f"""
     <table>
@@ -795,7 +799,7 @@ def display_image_details(key, details):
         </tr>
         <tr>
             <td>Classification</td>
-            <td>{get_existing_classification(key).get('classification', 'Unknown')}</td>
+            <td>{current_classification}</td>
         </tr>
     </table>
     """
@@ -803,24 +807,26 @@ def display_image_details(key, details):
     # Render the table with st.markdown
     st.markdown(html_table, unsafe_allow_html=True)
 
-    # Option to change classification
+    # Option to change classification without "Keep Existing"
+    st.write(f"### Current Classification: **{current_classification}**")
     new_classification = st.radio(
-        "Change Classification",
-        ('Keep Existing', 'Good', 'Bad'),
-        index=0
+        "Select New Classification:",
+        ('Good', 'Bad'),
+        index=0 if current_classification == 'Good' else 1
     )
-    if new_classification != 'Keep Existing':
-        if st.button(f"Update Classification for {key}"):
-            update_classification_in_mongo(key, {
-                "s3_filename": key,
-                "classification": new_classification,
-                "user_id": details.get('userid', 'N/A'),
-                "uploaded_at": details.get('uploaded_at', 'N/A'),
-                "timestamp": details.get('timestamp', 'N/A'),
-                "language": details.get('language', 'N/A'),
-                "predictions": details.get('detection_results', [])
-            })
-            st.success(f"Classification for {key} updated successfully to {new_classification}.")
+
+    if st.button(f"Update Classification for {key}"):
+        # Update classification
+        update_classification_in_mongo(key, {
+            "s3_filename": key,
+            "classification": new_classification,
+            "user_id": details.get('userid', 'N/A'),
+            "uploaded_at": details.get('uploaded_at', 'N/A'),
+            "timestamp": details.get('timestamp', 'N/A'),
+            "language": details.get('language', 'N/A'),
+            "predictions": details.get('detection_results', [])
+        })
+        st.success(f"Classification for {key} updated successfully to {new_classification}.")
 
 
 # Streamlit App
