@@ -808,15 +808,6 @@ def display_image_details(key, details):
     st.markdown(html_table, unsafe_allow_html=True)
 
     # Option to change classification without "Keep Existing"
-    radio_label = "<span style='font-size: 20px; font-weight: bold;'>Select New Classification:</span>"
-
-    # Radio button for new classification with custom-styled label
-    new_classification = st.radio(
-        radio_label,  # HTML styled label
-        ('Good', 'Bad'),
-        index=0 if current_classification == 'Good' else 1,
-        key=f"classification_{key}"
-    )
     st.markdown("<h4 style='font-size: 20px;'>Select New Classification:</h4>", unsafe_allow_html=True)
 
     # Radio button for new classification
@@ -825,7 +816,6 @@ def display_image_details(key, details):
         ('Good', 'Bad'),
         index=0 if current_classification == 'Good' else 1
     )
-
 
     if st.button(f"Update Classification for {key}"):
         # Update classification
