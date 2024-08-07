@@ -134,9 +134,10 @@ def get_downloads_folder():
 
     return downloads_folder
 
-def download_images_as_zip(image_keys):
-    """Download images from S3 and provide them as a ZIP file download."""
 
+def download_images_as_zip(image_keys):
+    """Download images from S3, compress them into a ZIP file, and provide it for download."""
+    
     # Create a temporary directory for images
     temp_dir = os.path.join(get_downloads_folder(), "temp_images")
     os.makedirs(temp_dir, exist_ok=True)
@@ -164,13 +165,11 @@ def download_images_as_zip(image_keys):
     # Clean up the temporary directory after creating the ZIP
     shutil.rmtree(temp_dir)
 
-    # Provide a download button for the ZIP file
-    st.download_button(
-        label="Download Images as ZIP",
-        data=zip_buffer.getvalue(),
-        file_name="wrong_classification.zip",
-        mime="application/zip"
-    )
+    # Reset the buffer position to the beginning
+    zip_buffer.seek(0)
+
+    # Return the buffer containing the ZIP file
+    return zip_buffer
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
