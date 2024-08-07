@@ -808,11 +808,11 @@ def display_image_details(key, details):
     st.markdown(html_table, unsafe_allow_html=True)
 
     # Option to change classification without "Keep Existing"
-    st.markdown("<h4 style='font-size: 20px;'>Select New Classification:</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='font-size: 20px;'>Do you want to change the classification?</h4>", unsafe_allow_html=True)
 
     # Radio button for new classification
     new_classification = st.radio(
-        "",
+        "If yes, choose an option:",
         ('Good', 'Bad'),
         index=0 if current_classification == 'Good' else 1
     )
