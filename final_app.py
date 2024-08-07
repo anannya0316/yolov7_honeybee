@@ -53,9 +53,19 @@ def fetch_image_from_s3(bucket_name, key):
     response = s3_client.get_object(Bucket=bucket_name, Key=key)
     return response['Body'].read()
 
-def download_images_to_folders(image_keys, base_download_path, max_images_per_folder=100):
+from pathlib import Path
+import os
+
+def get_downloads_folder():
+    """Get the path to the user's Downloads folder."""
+    home = Path.home()
+    downloads = home / 'Downloads'
+    return downloads
+
+def download_images_to_folders(image_keys, max_images_per_folder=100):
     """Download images to local folders, limiting to max_images_per_folder per folder."""
-    os.makedirs(base_download_path, exist_ok=True)
+    base_download_path = get_downloads_folder() / 'wrong_classification'
+    base_download_path.mkdir(parents=True, exist_ok=True)
     
     # Create a set to keep track of all existing images to avoid duplicates
     existing_images = set()
@@ -63,8 +73,8 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
     # Initialize folder counter and image counter
     folder_counter = 1
     image_counter = 0
-    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-    os.makedirs(current_folder, exist_ok=True)
+    current_folder = base_download_path / f"images_batch_{folder_counter}"
+    current_folder.mkdir(parents=True, exist_ok=True)
     
     for key in image_keys:
         try:
@@ -75,7 +85,7 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
                 st.info(f"Duplicate image detected: {filename}. Skipping download.")
                 continue
             
-            local_filename = os.path.join(current_folder, filename)
+            local_filename = current_folder / filename
 
             # Fetch the image from S3
             image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
@@ -89,8 +99,8 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
             # Check if the current folder has reached the maximum number of images
             if image_counter >= max_images_per_folder:
                 folder_counter += 1
-                current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-                os.makedirs(current_folder, exist_ok=True)
+                current_folder = base_download_path / f"images_batch_{folder_counter}"
+                current_folder.mkdir(parents=True, exist_ok=True)
                 image_counter = 0  # Reset counter for the new folder
 
         except Exception as e:
@@ -98,11 +108,16 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
 
     st.success(f"Downloads completed. Total folders created: {folder_counter}")
     st.write(f"Files saved to: {base_download_path}")
+
     # Debug: list files in the download directory
     st.write("Files in download directory:")
     for root, dirs, files in os.walk(base_download_path):
         for file in files:
             st.write(os.path.join(root, file))
+
+# Example usage
+download_images_to_folders(bad_image_keys, max_images_per_folder=100)
+
 
 
 def fetch_details_from_mongo(s3_filename):
