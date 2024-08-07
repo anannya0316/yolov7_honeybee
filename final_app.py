@@ -115,9 +115,6 @@ def download_images_to_folders(image_keys, max_images_per_folder=100):
         for file in files:
             st.write(os.path.join(root, file))
 
-# Example usage
-download_images_to_folders(bad_image_keys, max_images_per_folder=100)
-
 
 
 def fetch_details_from_mongo(s3_filename):
