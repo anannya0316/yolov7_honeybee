@@ -567,7 +567,10 @@ def fetch_bad_images_from_mongo():
     """Fetch image keys of bad images from MongoDB."""
     # Query MongoDB for images classified as "Bad"
     bad_images = classification_collection.find({"classification": "Bad"})
-    return [image['s3_filename'] for image in bad_images]
+    
+    # Collect the 's3_filename' if it exists
+    return [image.get('s3_filename') for image in bad_images if 's3_filename' in image]
+
 
 def fetch_image_from_s3(bucket_name, key):
     """Fetch an image from S3 by its key."""
