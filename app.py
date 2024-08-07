@@ -30,18 +30,16 @@ s3_client = boto3.client(
 
 def list_images_from_s3(bucket_name):
     """List image files from the specified S3 bucket, excluding certain prefixes."""
+    response = s3_client.list_objects_v2(Bucket=bucket_name)
     images = []
-    paginator = s3_client.get_paginator('list_objects_v2')
     
-    # Paginate through all objects in the bucket
-    for page in paginator.paginate(Bucket=bucket_name):
-        for obj in page.get('Contents', []):
-            key = obj['Key']
-            # Filter image files, ignoring those with the prefix "qu13edjkbs"
-            if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
-                images.append(key)
+    # Collect all image files
+    for obj in response.get('Contents', []):
+        key = obj['Key']
+        # Filter image files, ignoring those with the prefix "qu13edjkbs"
+        if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
+            images.append(key)
     
-    st.write("Retrieved image keys:", images)  # Debug: Show all keys
     return images
 
 def fetch_image_from_s3(bucket_name, key):
@@ -56,15 +54,12 @@ def extract_dates_from_keys(keys):
         # Assuming the filename format is "userid/images/YYYYMMDDHHMMSS.png"
         parts = key.split('/')
         if len(parts) > 1:
-            filename = parts[-1]
-            date_str = filename[:8]  # Extract YYYYMMDD from the filename
+            date_str = parts[-1][:8]  # Extract YYYYMMDD from the filename
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
                 dates.add(date_obj)
             except ValueError:
-                st.write(f"Skipping non-matching date format for key: {key}")  # Debug: Show skipped keys
-                pass
-    st.write("Extracted Dates:", [date.strftime("%Y-%m-%d") for date in dates])  # Debug: Show extracted dates
+                pass  # Skip any filenames that don't match the date format
     return sorted(dates)
 
 # Streamlit App
@@ -87,7 +82,6 @@ else:
 
     # Filter image keys based on the selected date
     filtered_keys = [key for key in image_keys if date_str in key]
-    st.write(f"Filtered keys for date {date_str}:", filtered_keys)  # Debug: Show filtered keys
 
     # Debug: Display the number of images found for the selected date
     st.write(f"Number of images found for {date_selected.strftime('%B %d, %Y')}: {len(filtered_keys)}")
@@ -122,7 +116,7 @@ else:
             st.image(img, caption=f"**Image:** {key}", use_column_width=True)
 
             # Fetch and display detection results from MongoDB
-            details = detection_collection.find_one({"s3_filename": key})
+            details = fetch_details_from_mongo(key)
             if details and details.get('detection_results'):
                 st.write("### Detection Results:")
                 predictions = details.get('detection_results', [])
