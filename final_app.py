@@ -1,19 +1,20 @@
 import streamlit as st
+import subprocess
+import shlex
+import os
+import shutil
 from pymongo import MongoClient
 import boto3
 from io import BytesIO
 from PIL import Image
 from datetime import datetime
-import os
-from pathlib import Path
 
 # Local configuration for S3 and MongoDB
-IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
-IMAGE_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
-IMAGE_S3_SECRET_KEY = st.secrets["aws"]["secret_key"]
-IMAGE_S3_REGION_NAME = st.secrets["aws"]["region_name"]
-
-MONGODB_URI = st.secrets["mongodb"]["uri"]
+IMAGE_S3_BUCKET_NAME = os.getenv("IMAGE_S3_BUCKET_NAME")
+IMAGE_S3_ACCESS_KEY = os.getenv("IMAGE_S3_ACCESS_KEY")
+IMAGE_S3_SECRET_KEY = os.getenv("IMAGE_S3_SECRET_KEY")
+IMAGE_S3_REGION_NAME = os.getenv("IMAGE_S3_REGION_NAME")
+MONGODB_URI = os.getenv("MONGODB_URI")
 
 # MongoDB Client
 client = MongoClient(MONGODB_URI)
@@ -28,6 +29,67 @@ s3_client = boto3.client(
     aws_secret_access_key=IMAGE_S3_SECRET_KEY,
     region_name=IMAGE_S3_REGION_NAME
 )
+
+# Authentication
+def authenticate(username, password):
+    """Authenticate the user with predefined credentials."""
+    return username == "beekind" and password == "beekind"
+
+# Utility Functions
+def remove_numbers(input_string):
+    return input_string.translate(str.maketrans('', '', '0123456789'))
+
+def detect_labels(weights_path, confidence_threshold, image_path):
+    # Validate the file paths
+    if not os.path.exists(weights_path):
+        raise FileNotFoundError(f"Weights file not found: {weights_path}")
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+
+    command = f"python yolov7/detect1.py --weights \"{weights_path}\" --conf {confidence_threshold} --source \"{image_path}\""
+    process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = process.communicate()
+
+    if process.returncode != 0:
+        raise RuntimeError(f"Command failed with error: {error.decode('utf-8')}")
+
+    predictions = output.decode("utf-8").split('\n')
+
+    # Find the line before "The image with the result is saved in..."
+    result_line_index = None
+    for i, line in enumerate(predictions):
+        if "The image with the result is saved in:" in line:
+            result_line_index = i - 1
+            break
+
+    if result_line_index is not None and 0 <= result_line_index < len(predictions):
+        result_line = predictions[result_line_index].strip()
+        # Remove "Done. (14.5ms) Inference, (595.8ms) NMS" part
+        result_line = result_line.split(', Done.')[0]
+        # Remove numbers and return labels
+        labels = [label.strip() for label in result_line.split(',')]
+        labels = [remove_numbers(label).strip() for label in labels]
+        return labels
+    else:
+        return []
+
+def save_image(image_path, is_good):
+    # Define directories
+    download_path = os.path.expanduser('~/Downloads')
+    correct_folder = os.path.join(download_path, 'correct')
+    incorrect_folder = os.path.join(download_path, 'incorrect')
+
+    # Create folders if they do not exist
+    if not os.path.exists(correct_folder):
+        os.makedirs(correct_folder)
+    if not os.path.exists(incorrect_folder):
+        os.makedirs(incorrect_folder)
+
+    # Move image to the correct folder
+    if is_good:
+        shutil.move(image_path, os.path.join(correct_folder, os.path.basename(image_path)))
+    else:
+        shutil.move(image_path, os.path.join(incorrect_folder, os.path.basename(image_path)))
 
 def list_images_from_s3(bucket_name):
     """List image files from the specified S3 bucket, excluding certain prefixes."""
@@ -47,23 +109,16 @@ def fetch_bad_images_from_mongo():
     """Fetch image keys of bad images from MongoDB."""
     # Query MongoDB for images classified as "Bad"
     bad_images = classification_collection.find({"classification": "Bad"})
-    return [image['s3_filename'] for image in bad_images if 's3_filename' in image]
+    return [image['s3_filename'] for image in bad_images]
 
 def fetch_image_from_s3(bucket_name, key):
     """Fetch an image from S3 by its key."""
     response = s3_client.get_object(Bucket=bucket_name, Key=key)
     return response['Body'].read()
 
-def get_downloads_folder():
-    """Get the path to the user's Downloads folder."""
-    home = Path.home()
-    downloads = home / 'Downloads'
-    return downloads
-
-def download_images_to_folders(image_keys, max_images_per_folder=100):
+def download_images_to_folders(image_keys, base_download_path, max_images_per_folder=100):
     """Download images to local folders, limiting to max_images_per_folder per folder."""
-    base_download_path = get_downloads_folder() / 'wrong_classification'
-    base_download_path.mkdir(parents=True, exist_ok=True)
+    os.makedirs(base_download_path, exist_ok=True)
     
     # Create a set to keep track of all existing images to avoid duplicates
     existing_images = set()
@@ -71,8 +126,8 @@ def download_images_to_folders(image_keys, max_images_per_folder=100):
     # Initialize folder counter and image counter
     folder_counter = 1
     image_counter = 0
-    current_folder = base_download_path / f"images_batch_{folder_counter}"
-    current_folder.mkdir(parents=True, exist_ok=True)
+    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+    os.makedirs(current_folder, exist_ok=True)
     
     for key in image_keys:
         try:
@@ -83,7 +138,7 @@ def download_images_to_folders(image_keys, max_images_per_folder=100):
                 st.info(f"Duplicate image detected: {filename}. Skipping download.")
                 continue
             
-            local_filename = current_folder / filename
+            local_filename = os.path.join(current_folder, filename)
 
             # Fetch the image from S3
             image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
@@ -97,21 +152,14 @@ def download_images_to_folders(image_keys, max_images_per_folder=100):
             # Check if the current folder has reached the maximum number of images
             if image_counter >= max_images_per_folder:
                 folder_counter += 1
-                current_folder = base_download_path / f"images_batch_{folder_counter}"
-                current_folder.mkdir(parents=True, exist_ok=True)
+                current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+                os.makedirs(current_folder, exist_ok=True)
                 image_counter = 0  # Reset counter for the new folder
 
         except Exception as e:
             st.error(f"Failed to download image {key}: {str(e)}")
 
     st.success(f"Downloads completed. Total folders created: {folder_counter}")
-    st.write(f"Files saved to: {base_download_path}")
-
-    # Debug: list files in the download directory
-    st.write("Files in download directory:")
-    for root, dirs, files in os.walk(base_download_path):
-        for file in files:
-            st.write(os.path.join(root, file))
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -166,100 +214,40 @@ def fetch_classification_counts():
     return good_count, bad_count
 
 # Streamlit App
-st.title("Beehive Image Classification and Management")
+st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
 
-# Fetch image keys from S3 bucket
-image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
+st.title("🐝 Beehive Image Detection and Management")
 
-# Extract available dates from image keys
-available_dates = extract_dates_from_keys(image_keys)
+# Sidebar for authentication
+st.sidebar.header("Authentication")
+username = st.sidebar.text_input("Username")
+password = st.sidebar.text_input("Password", type="password")
 
-if not available_dates:
-    st.warning("No images found in the S3 bucket.")
-else:
-    # Dropdown for selecting a date
-    date_selected = st.selectbox("Select Date", available_dates, format_func=lambda x: x.strftime('%B %d, %Y'))
+if authenticate(username, password):
+    st.sidebar.success("Authenticated")
+    
+    # Display count of Good and Bad images
+    good_count, bad_count = fetch_classification_counts()
+    st.sidebar.write(f"Good Images: {good_count}")
+    st.sidebar.write(f"Bad Images: {bad_count}")
 
-    # Convert the selected date to string format YYYYMMDD
-    date_str = date_selected.strftime("%Y%m%d")
-
-    # Filter image keys based on the selected date
-    filtered_keys = [key for key in image_keys if date_str in key]
-
-    # Debug: Display the number of images found for the selected date
-    st.write(f"Number of images found for {date_selected.strftime('%B %d, %Y')}: {len(filtered_keys)}")
-
-    if not filtered_keys:
-        st.warning(f"No images found for the selected date: {date_selected.strftime('%B %d, %Y')}.")
-    else:
-        # Initialize session state for image index
-        if 'image_index' not in st.session_state:
-            st.session_state.image_index = 0
-
-        # Define navigation buttons with disabled state logic
-        col1, col2, col3 = st.columns([1, 1, 1])
-
-        with col1:
-            st.button("Previous", 
-                      disabled=(st.session_state.image_index == 0),
-                      on_click=lambda: st.session_state.update(image_index=st.session_state.image_index - 1)
-            )
-
-        with col3:
-            st.button("Next", 
-                      disabled=(st.session_state.image_index == len(filtered_keys) - 1),
-                      on_click=lambda: st.session_state.update(image_index=st.session_state.image_index + 1)
-            )
-
-        # Fetch the selected image
-        if 0 <= st.session_state.image_index < len(filtered_keys):
-            key = filtered_keys[st.session_state.image_index]
-            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
-            img = Image.open(BytesIO(image_data))
-            st.image(img, caption=f"**Image:** {key}", use_column_width=True)
-
-            # Fetch and display detection results from MongoDB
-            details = fetch_details_from_mongo(key)
-            if details:
-                st.write("### Detection Results:")
-                predictions = details.get('detection_results', [])
-                if predictions:
-                    for prediction in predictions:
-                        label = prediction.get('label', 'Unknown')
-                        percentage = prediction.get('percentage', 0)
-                        st.write(f"- **{label}**: {percentage}%")
-                else:
-                    st.write("No detection results available")
-
-                # Check for existing classification
-                existing_classification = get_existing_classification(key)
-                if existing_classification:
-                    st.write(f"### Existing Classification: {existing_classification['classification']}")
-                else:
-                    st.write("No existing classification found.")
-                    
-                # User input for classification
-                classification = st.selectbox("Classify this image:", ["Good", "Bad"])
-                
-                # Submit button to save classification
-                if st.button("Submit Classification"):
-                    new_classification = {
-                        "s3_filename": key,
-                        "classification": classification
-                    }
-                    save_classification_to_mongo(key, classification, details)
-                    st.success("Classification saved successfully.")
-
-        # Download images to local machine
-        if st.button("Download Bad Images"):
+    # Download images section
+    st.header("Download Images")
+    if st.button("Download Images from S3"):
+        try:
+            # List images from S3 and fetch bad images from MongoDB
+            all_image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
             bad_image_keys = fetch_bad_images_from_mongo()
-            if bad_image_keys:
-                download_images_to_folders(bad_image_keys)
-            else:
-                st.warning("No bad images found for download.")
+            
+            # Filter to only include bad images
+            image_keys_to_download = [key for key in all_image_keys if key in bad_image_keys]
+            base_download_path = os.path.expanduser('~/Downloads/bad_images')
+            download_images_to_folders(image_keys_to_download, base_download_path)
 
-        # Display classification counts
-        good_count, bad_count = fetch_classification_counts()
-        st.write(f"### Classification Counts")
-        st.write(f"**Good Images:** {good_count}")
-        st.write(f"**Bad Images:** {bad_count}")
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+else:
+    st.warning("Please enter valid credentials.")
+
+st.sidebar.text("Built with Streamlit and AWS S3")
+
