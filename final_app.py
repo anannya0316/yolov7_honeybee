@@ -717,7 +717,7 @@ if selected_tab == "📸 Object Detection":
         uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
         # Parameters
-        weights_path = "yolov7/best_v4.pt"  # Ensure this path is correct according to your repo
+        weights_path = "best_v4.pt"  # Ensure this path is correct according to your repo
         confidence_threshold = 0.1
 
         if uploaded_file is not None:
