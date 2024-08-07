@@ -809,13 +809,22 @@ def display_image_details(key, details):
 
     # Option to change classification without "Keep Existing"
     # st.write(f"### Current Classification: **{current_classification}**")
+    # new_classification = st.radio(
+    #     "Select New Classification:",
+    #     ('Good', 'Bad'),
+    #     index=0 if current_classification == 'Good' else 1
+    # )
+    st.markdown("<h4 style='font-size: 20px;'>Select New Classification:</h4>", unsafe_allow_html=True)
+    
+    # Radio button for new classification
     new_classification = st.radio(
-        "Select New Classification:",
+        "",
         ('Good', 'Bad'),
         index=0 if current_classification == 'Good' else 1
     )
 
-    if st.button(f"### Update Classification for {key}"):
+
+    if st.button(f"Update Classification for {key}"):
         # Update classification
         update_classification_in_mongo(key, {
             "s3_filename": key,
