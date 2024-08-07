@@ -9,12 +9,12 @@ from io import BytesIO
 from PIL import Image
 from datetime import datetime
 
-# Local configuration for S3 and MongoDB
-IMAGE_S3_BUCKET_NAME = os.getenv("IMAGE_S3_BUCKET_NAME")
-IMAGE_S3_ACCESS_KEY = os.getenv("IMAGE_S3_ACCESS_KEY")
-IMAGE_S3_SECRET_KEY = os.getenv("IMAGE_S3_SECRET_KEY")
-IMAGE_S3_REGION_NAME = os.getenv("IMAGE_S3_REGION_NAME")
-MONGODB_URI = os.getenv("MONGODB_URI")
+# Accessing secrets from Streamlit's secrets.toml
+IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
+IMAGE_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
+IMAGE_S3_SECRET_KEY = st.secrets["aws"]["secret_key"]
+IMAGE_S3_REGION_NAME = st.secrets["aws"]["region_name"]
+MONGODB_URI = st.secrets["mongodb"]["uri"]
 
 # MongoDB Client
 client = MongoClient(MONGODB_URI)
@@ -109,7 +109,9 @@ def fetch_bad_images_from_mongo():
     """Fetch image keys of bad images from MongoDB."""
     # Query MongoDB for images classified as "Bad"
     bad_images = classification_collection.find({"classification": "Bad"})
-    return [image['s3_filename'] for image in bad_images]
+    
+    # Safely access the 's3_filename' key using get() method to avoid KeyError
+    return [image.get('s3_filename') for image in bad_images if 's3_filename' in image]
 
 def fetch_image_from_s3(bucket_name, key):
     """Fetch an image from S3 by its key."""
@@ -218,36 +220,209 @@ st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layou
 
 st.title("🐝 Beehive Image Detection and Management")
 
-# Sidebar for authentication
-st.sidebar.header("Authentication")
-username = st.sidebar.text_input("Username")
-password = st.sidebar.text_input("Password", type="password")
+# Sidebar for authentication and navigation
+with st.sidebar:
+    st.header("Menu")
+    # Tabs for navigation, directly list as options with emojis
+    menu_options = [
+        "🔒 Login",
+        "📸 Object Detection",
+        "🗂️ Image Management"
+    ]
+    selected_tab = st.radio("Navigate to:", menu_options)
 
-if authenticate(username, password):
-    st.sidebar.success("Authenticated")
-    
-    # Display count of Good and Bad images
-    good_count, bad_count = fetch_classification_counts()
-    st.sidebar.write(f"Good Images: {good_count}")
-    st.sidebar.write(f"Bad Images: {bad_count}")
+# Page: Login
+if selected_tab == "🔒 Login":
+    st.header("🔒 Login Page")
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
 
-    # Download images section
-    st.header("Download Images")
-    if st.button("Download Images from S3"):
-        try:
-            # List images from S3 and fetch bad images from MongoDB
-            all_image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
-            bad_image_keys = fetch_bad_images_from_mongo()
-            
-            # Filter to only include bad images
-            image_keys_to_download = [key for key in all_image_keys if key in bad_image_keys]
-            base_download_path = os.path.expanduser('~/Downloads/bad_images')
-            download_images_to_folders(image_keys_to_download, base_download_path)
+    if not st.session_state.authenticated:
+        st.subheader("Authentication")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if authenticate(username, password):
+                st.session_state.authenticated = True
+                st.success("Authentication successful!")
+            else:
+                st.error("Invalid username or password.")
+    else:
+        st.success("You are already logged in!")
 
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-else:
-    st.warning("Please enter valid credentials.")
+# Page: Object Detection
+if selected_tab == "📸 Object Detection":
+    if not st.session_state.get('authenticated', False):
+        st.warning("Please log in to access this page.")
+    else:
+        st.header("📸 Object Detection with YOLOv7")
 
-st.sidebar.text("Built with Streamlit and AWS S3")
+        # Upload image
+        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
+        # Parameters
+        weights_path = "yolov7/best_v4.pt"
+        confidence_threshold = 0.1
+
+        if uploaded_file is not None:
+            # Save the uploaded file
+            image_path = os.path.join("yolov7/uploads", uploaded_file.name)
+            if not os.path.exists("yolov7/uploads"):
+                os.makedirs("yolov7/uploads")
+            with open(image_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+
+            # Detect labels
+            try:
+                labels = detect_labels(weights_path, confidence_threshold, image_path)
+                st.image(image_path, caption='Uploaded Image.', use_column_width=True)
+                st.write("Predicted Labels:")
+                st.write(labels)
+                
+                # User options for classification
+                classification = st.radio("Classify the predictions:", ("Good", "Bad"))
+                
+                if st.button("Submit Classification"):
+                    is_good = classification == "Good"
+                    save_image(image_path, is_good)
+                    st.success("Image classified and saved successfully!")
+
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+
+# Page: Image Management
+if selected_tab == "🗂️ Image Management":
+    if not st.session_state.get('authenticated', False):
+        st.warning("Please log in to access this page.")
+    else:
+        st.header("🗂️ Beehive Image Classification and Management")
+
+        # Fetch image keys from S3 bucket
+        image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
+
+        # Extract available dates from image keys
+        available_dates = extract_dates_from_keys(image_keys)
+
+        if not available_dates:
+            st.warning("No images found in the S3 bucket.")
+        else:
+            # Dropdown for selecting a date
+            date_selected = st.selectbox("Select Date", available_dates, format_func=lambda x: x.strftime('%B %d, %Y'))
+
+            # Convert the selected date to string format YYYYMMDD
+            date_str = date_selected.strftime("%Y%m%d")
+
+            # Filter image keys based on the selected date
+            filtered_keys = [key for key in image_keys if date_str in key]
+
+            # Debug: Display the number of images found for the selected date
+            st.write(f"Number of images found for {date_selected.strftime('%B %d, %Y')}: {len(filtered_keys)}")
+
+            if not filtered_keys:
+                st.warning(f"No images found for the selected date: {date_selected.strftime('%B %d, %Y')}.")
+            else:
+                # Initialize session state for image index
+                if 'image_index' not in st.session_state:
+                    st.session_state.image_index = 0
+
+                # Define navigation buttons with disabled state logic
+                col1, col2, col3 = st.columns([1, 1, 1])
+
+                with col1:
+                    st.button("Previous", 
+                            disabled=(st.session_state.image_index == 0),
+                            on_click=lambda: st.session_state.update(image_index=st.session_state.image_index - 1)
+                    )
+
+                with col3:
+                    st.button("Next", 
+                            disabled=(st.session_state.image_index == len(filtered_keys) - 1),
+                            on_click=lambda: st.session_state.update(image_index=st.session_state.image_index + 1)
+                    )
+
+                # Fetch the selected image
+                if 0 <= st.session_state.image_index < len(filtered_keys):
+                    key = filtered_keys[st.session_state.image_index]
+                    image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
+                    img = Image.open(BytesIO(image_data))
+                    st.image(img, caption=f"**Image:** {key}", use_column_width=True)
+
+                    # Fetch and display detection results from MongoDB
+                    details = fetch_details_from_mongo(key)
+                    if details:
+                        st.write("### Detection Results:")
+                        predictions = details.get('detection_results', [])
+                        if predictions:
+                            for prediction in predictions:
+                                label = prediction.get('label', 'Unknown')
+                                percentage = prediction.get('percentage', 0)
+                                st.write(f"- **{label}**: {percentage}%")
+                        else:
+                            st.write("No detection results available")
+
+                        # Check for existing classification
+                        existing_classification = get_existing_classification(key)
+
+                        if existing_classification:
+                            st.markdown(f"<large>**Current Classification:** {existing_classification['classification']}</large>", unsafe_allow_html=True)
+                            st.markdown(f"<medium>Do you want to change the classification for {key}?</medium>",unsafe_allow_html=True)
+                            change_classification = st.radio(
+                                "Select an option",
+                                ('Keep Existing', 'Change'),
+                                index=0
+                            )
+                            if change_classification == 'Change':
+                                new_classification = st.radio(
+                                    f"New Classification for {key}",
+                                    ('Good', 'Bad'),
+                                    index=0
+                                )
+                                if st.button(f"Update Classification for {key}", key=f"update_{key}"):
+                                    # Update classification
+                                    update_classification_in_mongo(key, {
+                                        "s3_filename": key,
+                                        "classification": new_classification,
+                                        "user_id": details.get('userid', 'N/A'),
+                                        "uploaded_at": details.get('uploaded_at', 'N/A'),
+                                        "timestamp": details.get('timestamp', 'N/A'),
+                                        "language": details.get('language', 'N/A'),
+                                        "predictions": details.get('detection_results', [])
+                                    })
+                                    st.success(f"Classification for {key} updated successfully to {new_classification}.")
+
+                        else:
+                            # Classification Section
+                            st.write("### Classify the Image")
+                            classification = st.radio(f"Classification for {key}", ('Good', 'Bad'), index=0)
+
+                            # Button to save classification
+                            if st.button(f"Save Classification for {key}", key=f"save_{key}"):
+                                save_classification_to_mongo(key, classification, details)
+                                st.success(f"Classification for {key} saved successfully as {classification}.")
+                    else:
+                        st.write("No detection results available.")
+
+                # Only show classification and download buttons once
+                st.write("---")  # Add a separator for clarity
+
+                # Horizontal Layout for buttons
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button("Show Total Classifications"):
+                        good_count, bad_count = fetch_classification_counts()
+                        st.write(f"Total Good Classifications: {good_count}")
+                        st.write(f"Total Bad Classifications: {bad_count}")
+
+                with col2:
+                    if st.button("Download Bad Images to Local Folders"):
+                        # Fetch all bad image keys from MongoDB
+                        bad_image_keys = fetch_bad_images_from_mongo()
+                        if not bad_image_keys:
+                            st.warning("No bad images found in the MongoDB collection.")
+                        else:
+                            # Define the base download path (your local Downloads folder)
+                            base_download_path = os.path.expanduser("~/Downloads/wrong_classification")
+
+                            # Download images to local folders, ensuring no duplicates
+                            download_images_to_folders(bad_image_keys, base_download_path, max_images_per_folder=100)
