@@ -109,7 +109,16 @@ def fetch_bad_images_from_mongo():
     """Fetch image keys of bad images from MongoDB."""
     # Query MongoDB for images classified as "Bad"
     bad_images = classification_collection.find({"classification": "Bad"})
-    return [image['s3_filename'] for image in bad_images]
+    missing_key_images = [image for image in bad_images if 's3_filename' not in image]
+    
+    if missing_key_images:
+        st.error(f"Warning: Some documents do not have the 's3_filename' key. Total: {len(missing_key_images)}")
+        # Optionally, log these documents for further inspection
+        for image in missing_key_images:
+            st.write("Missing 's3_filename':", image)
+    
+    return [image['s3_filename'] for image in bad_images if 's3_filename' in image]
+
 
 def fetch_image_from_s3(bucket_name, key):
     """Fetch an image from S3 by its key."""
