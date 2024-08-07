@@ -773,7 +773,7 @@ def display_image_details(key, details):
     # Check if predictions are available
     predictions = details.get('detection_results', [])
     
-    # Format predictions
+    # Format predictions with newline
     prediction_list = [
         f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
         for prediction in predictions
@@ -782,11 +782,11 @@ def display_image_details(key, details):
     # Display the table
     st.write("### Image Details")
     
-    # Construct DataFrame for display
+    # Construct DataFrame for display with newline-separated detections
     details_df = pd.DataFrame({
         "Category": ["Detections", "Classification"],
         "Details": [
-            ", ".join(prediction_list),
+            "\n".join(prediction_list),  # Join with newline characters
             get_existing_classification(key).get('classification', 'Unknown')
         ]
     })
@@ -811,6 +811,7 @@ def display_image_details(key, details):
                 "predictions": details.get('detection_results', [])
             })
             st.success(f"Classification for {key} updated successfully to {new_classification}.")
+
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
