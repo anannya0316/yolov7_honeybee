@@ -906,7 +906,6 @@ if selected_tab == "📸 Object Detection":
                 st.error(f"Error: {str(e)}")
 
 # Page: Image Management
-# Page: Image Management
 if selected_tab == "🗂️ Image Management":
     if not st.session_state.get('authenticated', False):
         st.warning("Please log in to access this page.")
@@ -990,6 +989,7 @@ if selected_tab == "🗂️ Image Management":
                         st.warning("No images found in the MongoDB collection.")
                     else:
                         download_images_as_zip(good_image_keys, bad_image_keys)
+
 
 
 # Page: Training
