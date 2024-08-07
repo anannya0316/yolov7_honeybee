@@ -579,59 +579,49 @@ def fetch_image_from_s3(bucket_name, key):
 
 def download_images_to_folders(image_keys, base_download_path, max_images_per_folder=100):
     """Download images to local folders, limiting to max_images_per_folder per folder."""
-    try:
-        # Ensure base download path exists
-        os.makedirs(base_download_path, exist_ok=True)
-        
-        # Create a set to keep track of all existing images to avoid duplicates
-        existing_images = set()
-        
-        # Initialize folder counter and image counter
-        folder_counter = 1
-        image_counter = 0
-        current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-        os.makedirs(current_folder, exist_ok=True)
-        
-        for key in image_keys:
-            try:
-                filename = os.path.basename(key)
-                
-                # Check for duplicate images using a set
-                if filename in existing_images:
-                    st.info(f"Duplicate image detected: {filename}. Skipping download.")
-                    continue
-                
-                local_filename = os.path.join(current_folder, filename)
+    os.makedirs(base_download_path, exist_ok=True)
+    
+    # Create a set to keep track of all existing images to avoid duplicates
+    existing_images = set()
+    
+    # Initialize folder counter and image counter
+    folder_counter = 1
+    image_counter = 0
+    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+    os.makedirs(current_folder, exist_ok=True)
+    
+    for key in image_keys:
+        try:
+            filename = os.path.basename(key)
+            
+            # Check for duplicate images using a set
+            if filename in existing_images:
+                st.info(f"Duplicate image detected: {filename}. Skipping download.")
+                continue
+            
+            local_filename = os.path.join(current_folder, filename)
 
-                # Fetch the image from S3
-                image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
-                img = Image.open(BytesIO(image_data))
-                img.save(local_filename)
-                
-                # Verify that the file is saved
-                if os.path.exists(local_filename):
-                    st.success(f"Image {filename} downloaded successfully to {local_filename}.")
-                else:
-                    st.error(f"Failed to save image {filename} to {local_filename}.")
+            # Fetch the image from S3
+            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
+            img = Image.open(BytesIO(image_data))
+            img.save(local_filename)
+            
+            # Update existing images set and counters
+            existing_images.add(filename)
+            image_counter += 1
+            
+            # Check if the current folder has reached the maximum number of images
+            if image_counter >= max_images_per_folder:
+                folder_counter += 1
+                current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
+                os.makedirs(current_folder, exist_ok=True)
+                image_counter = 0  # Reset counter for the new folder
 
-                # Update existing images set and counters
-                existing_images.add(filename)
-                image_counter += 1
-                
-                # Check if the current folder has reached the maximum number of images
-                if image_counter >= max_images_per_folder:
-                    folder_counter += 1
-                    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-                    os.makedirs(current_folder, exist_ok=True)
-                    image_counter = 0  # Reset counter for the new folder
+        except Exception as e:
+            st.error(f"Failed to download image {key}: {str(e)}")
 
-            except Exception as e:
-                st.error(f"Failed to download image {key}: {str(e)}")
+    st.success(f"Downloads completed. Total folders created: {folder_counter}")
 
-        st.success(f"Downloads completed. Total folders created: {folder_counter}")
-
-    except Exception as e:
-        st.error(f"An error occurred while downloading images: {str(e)}")
 
 
 def fetch_details_from_mongo(s3_filename):
