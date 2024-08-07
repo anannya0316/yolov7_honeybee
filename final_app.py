@@ -773,25 +773,29 @@ def display_image_details(key, details):
     # Check if predictions are available
     predictions = details.get('detection_results', [])
     
-    # Format predictions
+    # Format predictions as bullet points
     prediction_list = [
-        f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
+        f"- {prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
         for prediction in predictions
     ]
 
-    # Display the table
-    st.write("### Image Details")
-    
-    # Construct DataFrame for display
+    # Join predictions using Markdown line breaks
+    detections = "\n".join(prediction_list)  # Use Markdown for bullet points
+
+    # Construct a DataFrame
     details_df = pd.DataFrame({
         "Category": ["Detections", "Classification"],
         "Details": [
-            "\n".join(prediction_list),
+            detections,  # Use Markdown for bullet points
             get_existing_classification(key).get('classification', 'Unknown')
         ]
     })
 
-    st.table(details_df)
+    # Convert DataFrame to HTML table with Markdown support
+    html_table = details_df.to_html(index=False, escape=False)
+
+    # Render the table with st.markdown
+    st.markdown(f"### Image Details\n\n{html_table}", unsafe_allow_html=True)
 
     # Option to change classification
     new_classification = st.radio(
@@ -811,6 +815,7 @@ def display_image_details(key, details):
                 "predictions": details.get('detection_results', [])
             })
             st.success(f"Classification for {key} updated successfully to {new_classification}.")
+
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
