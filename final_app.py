@@ -900,6 +900,7 @@ if selected_tab == "📸 Object Detection":
                 st.error(f"Error: {str(e)}")
 
 # Page: Image Management
+# Page: Image Management
 if selected_tab == "🗂️ Image Management":
     if not st.session_state.get('authenticated', False):
         st.warning("Please log in to access this page.")
@@ -959,7 +960,7 @@ if selected_tab == "🗂️ Image Management":
                     # Fetch and display detection results from MongoDB
                     details = fetch_details_from_mongo(key)
                     if details:
-                        display_image_details(key, details)  # Call the new function to display predictions and classification
+                        display_image_details(key, details)  # Call the function to display predictions and classification
                     else:
                         st.write("No detection results available.")
 
@@ -983,6 +984,7 @@ if selected_tab == "🗂️ Image Management":
                         st.warning("No images found in the MongoDB collection.")
                     else:
                         download_images_as_zip(good_image_keys, bad_image_keys)
+
 
 # Page: Training
 if selected_tab == "📚 Training":
