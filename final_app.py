@@ -786,7 +786,7 @@ def display_image_details(key, details):
     details_df = pd.DataFrame({
         "Category": ["Detections", "Classification"],
         "Details": [
-            ", ".join(prediction_list),
+            "\n".join(prediction_list),
             get_existing_classification(key).get('classification', 'Unknown')
         ]
     })
