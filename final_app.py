@@ -8,6 +8,8 @@ import boto3
 from io import BytesIO
 from PIL import Image
 from datetime import datetime
+import platform
+from pathlib import Path
 
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
@@ -75,7 +77,7 @@ def detect_labels(weights_path, confidence_threshold, image_path):
 
 def save_image(image_path, is_good):
     # Define directories
-    download_path = os.path.expanduser('~/Downloads')
+    download_path = get_downloads_folder()
     correct_folder = os.path.join(download_path, 'correct')
     incorrect_folder = os.path.join(download_path, 'incorrect')
 
@@ -118,8 +120,25 @@ def fetch_image_from_s3(bucket_name, key):
     response = s3_client.get_object(Bucket=bucket_name, Key=key)
     return response['Body'].read()
 
-def download_images_to_folders(image_keys, base_download_path, max_images_per_folder=100):
-    """Download images to local folders, limiting to max_images_per_folder per folder."""
+def get_downloads_folder():
+    """Get the path to the user's Downloads folder on any operating system."""
+    system_name = platform.system()
+
+    if system_name == 'Windows':
+        # Use the HOME environment variable for Windows
+        downloads_folder = os.path.join(os.getenv('USERPROFILE'), 'Downloads')
+    elif system_name == 'Darwin':
+        # Use the HOME environment variable for macOS (Darwin is the system name for macOS)
+        downloads_folder = os.path.join(os.getenv('HOME'), 'Downloads')
+    else:
+        # Use the HOME environment variable for Linux and other Unix-like systems
+        downloads_folder = os.path.join(os.getenv('HOME'), 'Downloads')
+
+    return downloads_folder
+
+def download_images_to_folders(image_keys, max_images_per_folder=100):
+    """Download images to the local Downloads folder, limiting to max_images_per_folder per folder."""
+    base_download_path = os.path.join(get_downloads_folder(), 'wrong_classification')
     os.makedirs(base_download_path, exist_ok=True)
     
     # Create a set to keep track of all existing images to avoid duplicates
@@ -166,6 +185,18 @@ def download_images_to_folders(image_keys, base_download_path, max_images_per_fo
     # Print the path where images are downloaded
     st.write(f"Images downloaded to: {base_download_path}")
 
+    # Archive the downloaded folder into a zip file for easier downloading
+    zip_filename = f"{base_download_path}.zip"
+    shutil.make_archive(base_download_path, 'zip', base_download_path)
+
+    # Provide download link for the zip file
+    with open(zip_filename, 'rb') as zip_file:
+        st.download_button(
+            label="Download Images as ZIP",
+            data=zip_file,
+            file_name="wrong_classification.zip",
+            mime="application/zip"
+        )
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -425,8 +456,6 @@ if selected_tab == "🗂️ Image Management":
                         if not bad_image_keys:
                             st.warning("No bad images found in the MongoDB collection.")
                         else:
-                            # Define the base download path (your local Downloads folder)
-                            base_download_path = os.path.expanduser("~/Downloads/wrong_classification")
-
                             # Download images to local folders, ensuring no duplicates
-                            download_images_to_folders(bad_image_keys, base_download_path, max_images_per_folder=100)
+                            download_images_to_folders(bad_image_keys, max_images_per_folder=100)
+
