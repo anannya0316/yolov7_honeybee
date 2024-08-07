@@ -697,6 +697,55 @@ def fetch_details_from_mongo(s3_filename):
     # Find the document in MongoDB that matches the s3_filename
     return detection_collection.find_one({"s3_filename": s3_filename})
 
+def display_image_details(key, details):
+    """Display image details including classification and predictions."""
+    # Check if predictions are available
+    predictions = details.get('detection_results', [])
+    
+    # Format predictions with Markdown line breaks
+    prediction_list = [
+        f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
+        for prediction in predictions
+    ]
+    
+    # Join predictions using Markdown line breaks
+    detections = "  \n".join(prediction_list)
+
+    # Construct a DataFrame
+    details_df = pd.DataFrame({
+        "Category": ["Detections", "Classification"],
+        "Details": [
+            detections,  # Use Markdown for line breaks
+            get_existing_classification(key).get('classification', 'Unknown')
+        ]
+    })
+
+    # Convert DataFrame to Markdown table
+    markdown_table = details_df.to_markdown(index=False)
+
+    # Render the table with st.markdown
+    st.markdown(f"### Image Details\n\n{markdown_table}", unsafe_allow_html=True)
+
+    # Option to change classification
+    new_classification = st.radio(
+        "Change Classification",
+        ('Keep Existing', 'Good', 'Bad'),
+        index=0
+    )
+    if new_classification != 'Keep Existing':
+        if st.button(f"Update Classification for {key}"):
+            update_classification_in_mongo(key, {
+                "s3_filename": key,
+                "classification": new_classification,
+                "user_id": details.get('userid', 'N/A'),
+                "uploaded_at": details.get('uploaded_at', 'N/A'),
+                "timestamp": details.get('timestamp', 'N/A'),
+                "language": details.get('language', 'N/A'),
+                "predictions": details.get('detection_results', [])
+            })
+            st.success(f"Classification for {key} updated successfully to {new_classification}.")
+
+
 def extract_dates_from_keys(keys):
     """Extract unique dates from S3 image keys."""
     dates = set()
