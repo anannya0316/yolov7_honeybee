@@ -1,15 +1,13 @@
 import streamlit as st
-import subprocess
-import shlex
 import os
 import shutil
+import zipfile
 from pymongo import MongoClient
 import boto3
 from io import BytesIO
 from PIL import Image
 from datetime import datetime
 import platform
-from pathlib import Path
 
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
@@ -136,67 +134,43 @@ def get_downloads_folder():
 
     return downloads_folder
 
-def download_images_to_folders(image_keys, max_images_per_folder=100):
-    """Download images to the local Downloads folder, limiting to max_images_per_folder per folder."""
-    base_download_path = os.path.join(get_downloads_folder(), 'wrong_classification')
-    os.makedirs(base_download_path, exist_ok=True)
-    
-    # Create a set to keep track of all existing images to avoid duplicates
-    existing_images = set()
-    
-    # Initialize folder counter and image counter
-    folder_counter = 1
-    image_counter = 0
-    current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-    os.makedirs(current_folder, exist_ok=True)
-    
+def download_images_as_zip(image_keys):
+    """Download images from S3 and provide them as a ZIP file download."""
+
+    # Create a temporary directory for images
+    temp_dir = os.path.join(get_downloads_folder(), "temp_images")
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Loop through each image key, download, and save it
     for key in image_keys:
         try:
-            filename = os.path.basename(key)
-            
-            # Check for duplicate images using a set
-            if filename in existing_images:
-                st.info(f"Duplicate image detected: {filename}. Skipping download.")
-                continue
-            
-            local_filename = os.path.join(current_folder, filename)
-
             # Fetch the image from S3
             image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
             img = Image.open(BytesIO(image_data))
-            img.save(local_filename)
-            
-            # Update existing images set and counters
-            existing_images.add(filename)
-            image_counter += 1
-            
-            # Check if the current folder has reached the maximum number of images
-            if image_counter >= max_images_per_folder:
-                folder_counter += 1
-                current_folder = os.path.join(base_download_path, f"images_batch_{folder_counter}")
-                os.makedirs(current_folder, exist_ok=True)
-                image_counter = 0  # Reset counter for the new folder
+            # Save the image in the temporary directory
+            img.save(os.path.join(temp_dir, os.path.basename(key)))
 
         except Exception as e:
             st.error(f"Failed to download image {key}: {str(e)}")
 
-    st.success(f"Downloads completed. Total folders created: {folder_counter}")
+    # Create a ZIP file in memory
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        for filename in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, filename)
+            # Write each image file into the ZIP archive
+            zip_file.write(file_path, arcname=filename)
 
-    # Print the path where images are downloaded
-    st.write(f"Images downloaded to: {base_download_path}")
+    # Clean up the temporary directory after creating the ZIP
+    shutil.rmtree(temp_dir)
 
-    # Archive the downloaded folder into a zip file for easier downloading
-    zip_filename = f"{base_download_path}.zip"
-    shutil.make_archive(base_download_path, 'zip', base_download_path)
-
-    # Provide download link for the zip file
-    with open(zip_filename, 'rb') as zip_file:
-        st.download_button(
-            label="Download Images as ZIP",
-            data=zip_file,
-            file_name="wrong_classification.zip",
-            mime="application/zip"
-        )
+    # Provide a download button for the ZIP file
+    st.download_button(
+        label="Download Images as ZIP",
+        data=zip_buffer.getvalue(),
+        file_name="wrong_classification.zip",
+        mime="application/zip"
+    )
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -450,12 +424,11 @@ if selected_tab == "🗂️ Image Management":
                         st.write(f"Total Bad Classifications: {bad_count}")
 
                 with col2:
-                    if st.button("Download Bad Images to Local Folders"):
+                    if st.button("Download Bad Images as ZIP"):
                         # Fetch all bad image keys from MongoDB
                         bad_image_keys = fetch_bad_images_from_mongo()
                         if not bad_image_keys:
                             st.warning("No bad images found in the MongoDB collection.")
                         else:
-                            # Download images to local folders, ensuring no duplicates
-                            download_images_to_folders(bad_image_keys, max_images_per_folder=100)
-
+                            # Download images directly as a ZIP file
+                            download_images_as_zip(bad_image_keys)
