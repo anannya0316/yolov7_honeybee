@@ -135,42 +135,31 @@ def get_downloads_folder():
     return downloads_folder
 
 def download_images_as_zip(image_keys):
-    """Download images from S3 and add them to an existing ZIP file or create a new one."""
-    
-    # Path to the ZIP file
-    zip_path = os.path.join(get_downloads_folder(), "wrong_classification.zip")
-    
-    # Open the ZIP file in append mode if it exists, or create a new one
-    with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as zip_file:
-        existing_files = zip_file.namelist()  # Get a list of files already in the ZIP
+    """Download images from S3 and provide them as a ZIP file download."""
+
+    # Create a ZIP file in memory
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
         for key in image_keys:
             try:
                 # Fetch the image from S3
                 image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
                 img = Image.open(BytesIO(image_data))
-
-                # Prepare the image for saving
-                image_name = os.path.basename(key)
-                if image_name in existing_files:
-                    st.info(f"Image {image_name} already exists in the ZIP. Skipping.")
-                    continue
-
                 # Save the image to the ZIP archive
                 with BytesIO() as img_buffer:
                     img.save(img_buffer, format=img.format)
-                    zip_file.writestr(image_name, img_buffer.getvalue())
+                    zip_file.writestr(os.path.basename(key), img_buffer.getvalue())
 
             except Exception as e:
                 st.error(f"Failed to download image {key}: {str(e)}")
 
     # Provide a download link for the ZIP file
-    with open(zip_path, "rb") as zip_file:
-        st.download_button(
-            label="Download Images as ZIP",
-            data=zip_file,
-            file_name="wrong_classification.zip",
-            mime="application/zip"
-        )
+    st.download_button(
+        label="Download Images as ZIP",
+        data=zip_buffer.getvalue(),
+        file_name="wrong_classification.zip",
+        mime="application/zip"
+    )
 
 def fetch_details_from_mongo(s3_filename):
     """Fetch image details from MongoDB."""
@@ -430,4 +419,3 @@ if selected_tab == "🗂️ Image Management":
                         st.warning("No bad images found in the MongoDB collection.")
                     else:
                         download_images_as_zip(bad_image_keys)
-
