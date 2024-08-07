@@ -564,17 +564,32 @@ def save_image(image_path, is_good):
 
 def list_images_from_s3(bucket_name):
     """List image files from the specified S3 bucket, excluding certain prefixes."""
-    response = s3_client.list_objects_v2(Bucket=bucket_name)
-    images = []
-    
-    # Collect all image files
-    for obj in response.get('Contents', []):
-        key = obj['Key']
-        # Filter image files, ignoring those with the prefix "qu13edjkbs"
-        if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
-            images.append(key)
-    
-    return images
+    try:
+        response = s3_client.list_objects_v2(Bucket=bucket_name)
+        
+        # Check if any contents are returned
+        if 'Contents' not in response:
+            st.warning("No contents found in the S3 bucket.")
+            return []
+
+        images = []
+        
+        # Collect all image files
+        for obj in response['Contents']:
+            key = obj['Key']
+            st.write(f"Checking key: {key}")  # Debugging: Print all keys being checked
+            
+            # Filter image files, ignoring those with the prefix "qu13edjkbs"
+            if key.endswith(('.png', '.jpg', '.jpeg')) and not key.startswith('qu13edjkbs'):
+                images.append(key)
+        
+        st.write(f"Filtered images: {images}")  # Debugging: Show filtered image keys
+        
+        return images
+    except Exception as e:
+        st.error(f"Failed to list images from S3: {str(e)}")
+        return []
+
 
 def fetch_bad_images_from_mongo():
     """Fetch image keys of bad images from MongoDB."""
@@ -637,20 +652,27 @@ def fetch_details_from_mongo(s3_filename):
     # Find the document in MongoDB that matches the s3_filename
     return detection_collection.find_one({"s3_filename": s3_filename})
 
-def extract_dates_from_keys(keys):
-    """Extract unique dates from S3 image keys."""
+def extract_all_dates(keys):
+    """Extract dates from all image keys without specific format constraints."""
     dates = set()
     for key in keys:
-        # Assuming the filename format is "userid/YYYYMMDDHHMMSS.png"
-        parts = key.split('/')
-        if len(parts) > 1:
-            date_str = parts[-1][:8]  # Extract YYYYMMDD from the filename
+        if not key.startswith('qu13edjkbs'):  # Only consider keys without 'qu13edjkbs' prefix
             try:
-                date_obj = datetime.strptime(date_str, "%Y%m%d")
-                dates.add(date_obj.strftime('%Y-%m-%d'))
-            except ValueError:
-                pass  # Skip any filenames that don't match the date format
+                st.write(f"Processing key for date extraction: {key}")  # Debugging
+                # Assuming keys contain dates in YYYYMMDD format somewhere in the name
+                # Extract possible date parts from the key
+                for i in range(len(key) - 7):
+                    potential_date_str = key[i:i+8]
+                    try:
+                        date_obj = datetime.strptime(potential_date_str, "%Y%m%d")
+                        dates.add(date_obj.strftime('%Y-%m-%d'))
+                    except ValueError:
+                        continue  # Skip if not a valid date
+            except Exception as e:
+                st.error(f"Error processing key {key}: {str(e)}")
+    st.write(f"Extracted dates: {dates}")  # Debugging
     return sorted(dates)
+
 
 def get_existing_classification(s3_filename):
     """Check if the image is already classified and return its classification."""
@@ -780,6 +802,7 @@ if selected_tab == "📸 Object Detection":
                 st.error(f"Error: {str(e)}")
 
 # Page: Image Management
+# Page: Image Management
 if selected_tab == "🗂️ Image Management":
     if not st.session_state.get('authenticated', False):
         st.warning("Please log in to access this page.")
@@ -789,26 +812,23 @@ if selected_tab == "🗂️ Image Management":
         # Fetch image keys from S3 bucket
         image_keys = list_images_from_s3(IMAGE_S3_BUCKET_NAME)
 
-        # Extract available dates from image keys without a specific format
+        # Extract available dates from image keys
         available_dates = extract_all_dates(image_keys)
 
         if not available_dates:
             st.warning("No images found in the S3 bucket.")
         else:
             # Dropdown for selecting a date
-            date_selected = st.selectbox("Select Date", available_dates, format_func=lambda x: x.strftime('%B %d, %Y'))
-
-            # Convert the selected date to string format YYYYMMDD
-            date_str = date_selected.strftime("%Y%m%d")
+            date_selected = st.selectbox("Select Date", available_dates)
 
             # Filter image keys based on the selected date
-            filtered_keys = [key for key in image_keys if date_str in key]
+            filtered_keys = [key for key in image_keys if date_selected in key]
 
             # Debug: Display the number of images found for the selected date
-            st.write(f"Number of images found for {date_selected.strftime('%B %d, %Y')}: {len(filtered_keys)}")
+            st.write(f"Number of images found for {date_selected}: {len(filtered_keys)}")
 
             if not filtered_keys:
-                st.warning(f"No images found for the selected date: {date_selected.strftime('%B %d, %Y')}.")
+                st.warning(f"No images found for the selected date: {date_selected}.")
             else:
                 # Initialize session state for image index
                 if 'image_index' not in st.session_state:
@@ -910,6 +930,7 @@ if selected_tab == "🗂️ Image Management":
                         st.warning("No bad images found in the MongoDB collection.")
                     else:
                         download_images_as_zip(bad_image_keys)
+
 
 # Page: Training
 if selected_tab == "🧠 Training":
