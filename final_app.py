@@ -773,25 +773,35 @@ def display_image_details(key, details):
     # Check if predictions are available
     predictions = details.get('detection_results', [])
     
-    # Format predictions with newline
+    # Format predictions with HTML line breaks
     prediction_list = [
         f"{prediction.get('label', 'Unknown')}: {prediction.get('percentage', 0):.2f}%"
         for prediction in predictions
     ]
-
-    # Display the table
-    st.write("### Image Details")
     
-    # Construct DataFrame for display with newline-separated detections
-    details_df = pd.DataFrame({
-        "Category": ["Detections", "Classification"],
-        "Details": [
-            "\n".join(prediction_list),  # Join with newline characters
-            get_existing_classification(key).get('classification', 'Unknown')
-        ]
-    })
+    # Join predictions using HTML line breaks
+    detections = "<br>".join(prediction_list)
 
-    st.table(details_df)
+    # Construct HTML for the table
+    html_table = f"""
+    <table>
+        <tr>
+            <th>Category</th>
+            <th>Details</th>
+        </tr>
+        <tr>
+            <td>Detections</td>
+            <td>{detections}</td>
+        </tr>
+        <tr>
+            <td>Classification</td>
+            <td>{get_existing_classification(key).get('classification', 'Unknown')}</td>
+        </tr>
+    </table>
+    """
+
+    # Render the table with st.markdown
+    st.markdown(f"### Image Details\n\n{html_table}", unsafe_allow_html=True)
 
     # Option to change classification
     new_classification = st.radio(
