@@ -897,7 +897,7 @@ def display_image_details(key, details):
         index=0 if current_classification == 'Good' else 1
     )
 
-    if st.button(f"Update Classification for {key}"):
+    if st.button(f"Update Classification"):
         # Update classification
         update_classification_in_mongo(key, {
             "s3_filename": key,
