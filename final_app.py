@@ -11,6 +11,7 @@ import platform
 import pandas as pd
 import subprocess
 import shlex
+import sys
 
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
