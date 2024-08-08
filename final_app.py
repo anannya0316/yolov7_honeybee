@@ -49,7 +49,6 @@ def detect_labels(weights_path, confidence_threshold, image_path):
         raise FileNotFoundError(f"Weights file not found: {weights_path}")
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image file not found: {image_path}")
-    
 
     command = f"{sys.executable} yolov7/detect3.py --weights \"{weights_path}\" --conf {confidence_threshold} --source \"{image_path}\""
     process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -59,24 +58,23 @@ def detect_labels(weights_path, confidence_threshold, image_path):
         raise RuntimeError(f"Command failed with error: {error.decode('utf-8')}")
 
     predictions = output.decode("utf-8").split('\n')
+    detection_results = {}
 
-    # Find the line before "The image with the result is saved in..."
-    result_line_index = None
-    for i, line in enumerate(predictions):
-        if "The image with the result is saved in:" in line:
-            result_line_index = i - 1
-            break
+    start_reading = False
+    for line in predictions:
+        if line.startswith("Object area percentages:"):
+            start_reading = True
+            continue
+        if start_reading:
+            if line.startswith("Done."):
+                break
+            parts = line.split(":")
+            if len(parts) == 2:
+                label = parts[0].strip()
+                percentage = parts[1].strip()
+                detection_results[label] = percentage
 
-    if result_line_index is not None and 0 <= result_line_index < len(predictions):
-        result_line = predictions[result_line_index].strip()
-        # Remove "Done. (14.5ms) Inference, (595.8ms) NMS" part
-        result_line = result_line.split(', Done.')[0]
-        # Remove numbers and return labels
-        labels = [label.strip() for label in result_line.split(',')]
-        labels = [remove_numbers(label).strip() for label in labels]
-        return labels
-    else:
-        return []
+    return detection_results
 
 def save_image(image_path, is_good):
     # Define directories
@@ -423,11 +421,16 @@ if selected_tab == "📸 Object Detection":
 
             # Detect labels
             try:
-                labels = detect_labels(weights_path, confidence_threshold, image_path)
+                detections = detect_labels(weights_path, confidence_threshold, image_path)
                 st.image(image_path, caption='Uploaded Image.', use_column_width=True)
                 st.write("Predicted Labels:")
-                st.write(labels)
                 
+                if detections:
+                    for label, percentage in detections.items():
+                        st.write(f"{label}: {percentage}")
+                else:
+                    st.write("No detections")
+
                 # User options for classification
                 classification = st.radio("Classify the predictions:", ("Good", "Bad"))
                 
@@ -438,6 +441,7 @@ if selected_tab == "📸 Object Detection":
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
+
 
 # Page: Image Management
 if selected_tab == "🗂️ Image Management":
