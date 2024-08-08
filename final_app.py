@@ -50,7 +50,8 @@ def detect_labels(weights_path, confidence_threshold, image_path):
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image file not found: {image_path}")
     
-    command = f"python yolov7/detect1.py --weights \"{weights_path}\" --conf {confidence_threshold} --source \"{image_path}\""
+
+    command = f"{sys.executable} yolov7/detect1.py --weights \"{weights_path}\" --conf {confidence_threshold} --source \"{image_path}\""
     process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = process.communicate()
 
