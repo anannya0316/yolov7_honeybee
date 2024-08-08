@@ -543,8 +543,8 @@ if selected_tab == "📚 Training":
 
             # List files
             files_list = list_files_in_directory(extracted_path)
-            st.write("Files Extracted:")
-            for file in files_list:
-                st.write(file)
+            # st.write("Files Extracted:")
+            # for file in files_list:
+            #     st.write(file)
 
-            st.success("Zip file extracted and files listed above.")
+            st.success("Zip file extraction is complete! ")
