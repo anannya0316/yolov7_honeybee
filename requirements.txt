@@ -1,3 +1,50 @@
+#streamlit
+#pymongo
+#boto3
+#matplotlib
+#pyyaml
+
+
+
+# Base ----------------------------------------
+matplotlib
+numpy
+opencv-python
+Pillow
+PyYAML
+requests
+scipy
+torch
+torchvision
+tqdm
+protobuf
+
+# Logging -------------------------------------
+tensorboard
+# wandb
+
+# Plotting ------------------------------------
+pandas
+seaborn
+
+# Export --------------------------------------
+# coremltools  # CoreML export
+# onnx  # ONNX export
+# onnx-simplifier  # ONNX simplifier
+# scikit-learn  # CoreML quantization
+# tensorflow  # TFLite export
+# tensorflowjs  # TF.js export
+# openvino-dev  # OpenVINO export
+
+# Extras --------------------------------------
+ipython  # interactive notebook
+psutil  # system utilization
+thop  # FLOPs computation
+# albumentations
+# pycocotools  # COCO mAP
+# roboflow
+
+# Additional Packages -------------------------
 streamlit
 pymongo
 boto3
