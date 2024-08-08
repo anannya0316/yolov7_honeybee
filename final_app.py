@@ -1043,7 +1043,7 @@ if selected_tab == "🗂️ Image Management":
                     image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
                     img = Image.open(BytesIO(image_data))
                     
-                    col_image, col_details = st.columns([3, 1])  # Adjust column widths
+                    col_image, col_details = st.columns([2.5, 1.5])  # Adjust column widths
                     with col_image:
                         st.image(img, caption=f"**Image:** {key}", use_column_width=True)
 
