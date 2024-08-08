@@ -5,6 +5,7 @@
 #pyyaml
 
 
+libgl1
 
 # Base ----------------------------------------
 matplotlib
