@@ -492,14 +492,15 @@ if selected_tab == "🗂️ Image Management":
                     key = filtered_keys[st.session_state.image_index]
                     image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
                     img = Image.open(BytesIO(image_data))
-                    st.image(img, caption=f"**Image:** {key}", use_column_width=True)
-
+                    st.image(img, caption=f"**Image:** {key}", use_column_width=False, width=img.width // 2)
+                
                     # Fetch and display detection results from MongoDB
                     details = fetch_details_from_mongo(key)
                     if details:
                         display_image_details(key, details)  # Call the function to display predictions and classification
                     else:
                         st.write("No detection results available.")
+
 
                 # Only show classification and download buttons once
                 st.write("---")  # Add a separator for clarity
