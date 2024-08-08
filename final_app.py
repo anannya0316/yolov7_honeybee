@@ -419,10 +419,16 @@ if selected_tab == "📸 Object Detection":
             with open(image_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
+            # Resize the image to half its original size
+            img = Image.open(image_path)
+            width, height = img.size
+            new_size = (width // 2, height // 2)
+            img_resized = img.resize(new_size)
+
             # Detect labels
             try:
                 detections = detect_labels(weights_path, confidence_threshold, image_path)
-                st.image(image_path, caption='Uploaded Image.', use_column_width=True)
+                st.image(img_resized, caption='Uploaded Image (Resized).', use_column_width=True)
                 st.write("Predicted Labels:")
                 
                 if detections:
