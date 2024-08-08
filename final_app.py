@@ -548,7 +548,6 @@
 
 #             st.success("Zip file extracted and files listed above.")
 
-
 import streamlit as st
 import os
 import shutil
@@ -562,7 +561,6 @@ import platform
 import pandas as pd
 import subprocess
 import shlex
-import base64
 
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
@@ -1044,13 +1042,12 @@ if selected_tab == "🗂️ Image Management":
                     key = filtered_keys[st.session_state.image_index]
                     image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, key)
                     img = Image.open(BytesIO(image_data))
-
-                    col1, col2 = st.columns([1, 2])  # Define the column layout
-                    with col1:
-                        # Display the image in the first column
+                    
+                    col_image, col_details = st.columns([3, 1])  # Adjust column widths
+                    with col_image:
                         st.image(img, caption=f"**Image:** {key}", use_column_width=True)
 
-                    with col2:
+                    with col_details:
                         # Fetch and display detection results from MongoDB
                         details = fetch_details_from_mongo(key)
                         if details:
@@ -1078,7 +1075,6 @@ if selected_tab == "🗂️ Image Management":
                         st.warning("No images found in the MongoDB collection.")
                     else:
                         download_images_as_zip(good_image_keys, bad_image_keys)
-
 
 # Page: Training
 if selected_tab == "📚 Training":
