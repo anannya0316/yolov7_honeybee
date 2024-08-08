@@ -534,7 +534,7 @@ if selected_tab == "📚 Training":
         st.header("📚 Training")
 
         # Upload zip file for training
-        uploaded_zip_file = st.file_uploader("Upload Zip File (train, test, valid folders with images and text files):", type="zip")
+        uploaded_zip_file = st.file_uploader("Upload Dataset Zip File:", type="zip")
 
         if uploaded_zip_file is not None:
             # Extract zip file
