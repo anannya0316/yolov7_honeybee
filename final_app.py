@@ -208,11 +208,11 @@ def download_images_as_zip(good_image_keys, bad_image_keys):
             except Exception as e:
                 st.error(f"Failed to download image {key}: {str(e)}")
         
-        # Create a DataFrame for the image details and write to a CSV file in the ZIP archive
-        details_df = pd.DataFrame(image_details)
-        with BytesIO() as csv_buffer:
-            details_df.to_csv(csv_buffer, index=False)
-            zip_file.writestr("image_details.csv", csv_buffer.getvalue())
+        # # Create a DataFrame for the image details and write to a CSV file in the ZIP archive
+        # details_df = pd.DataFrame(image_details)
+        # with BytesIO() as csv_buffer:
+        #     details_df.to_csv(csv_buffer, index=False)
+        #     zip_file.writestr("image_details.csv", csv_buffer.getvalue())
 
     # Provide a download link for the ZIP file
     st.download_button(
