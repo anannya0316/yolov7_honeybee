@@ -428,7 +428,7 @@ if selected_tab == "📸 Object Detection":
             # Detect labels
             try:
                 detections = detect_labels(weights_path, confidence_threshold, image_path)
-                st.image(img_resized, caption='Uploaded Image (Resized).', use_column_width=True)
+                st.image(img_resized, caption='Uploaded Image (Resized).', width=new_size[0])  # Explicitly set the width
                 st.write("Predicted Labels:")
                 
                 if detections:
@@ -447,6 +447,7 @@ if selected_tab == "📸 Object Detection":
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
+
 
 
 # Page: Image Management
