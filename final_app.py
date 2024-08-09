@@ -422,7 +422,7 @@ if selected_tab == "📸 Object Detection":
             # Resize the image to half its original size
             img = Image.open(image_path)
             width, height = img.size
-            new_size = (width // 2, height // 2)
+            new_size = (width // 4, height // 4)
             img_resized = img.resize(new_size)
 
             # Detect labels
