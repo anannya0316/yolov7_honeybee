@@ -1,3 +1,4 @@
+
 import streamlit as st
 import os
 import shutil
@@ -26,7 +27,6 @@ client = MongoClient(MONGODB_URI)
 db = client['humble_bee']
 detection_collection = db['beehive_detection_records']
 classification_collection = db['classification_of_results']
-login_collection = db['login_credentials']
 
 # S3 Client
 s3_client = boto3.client(
@@ -380,33 +380,6 @@ def display_image_details(key, details):
         })
         st.success(f"Classification for {key} updated successfully to {new_classification}.")
 
-# Function to hash passwords
-def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-# Function to verify passwords
-def verify_password(password, hashed_password):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
-
-# Function to check if a username exists
-def username_exists(username):
-    return login_collection.find_one({"username": username}) is not None
-
-# Function to create a new user
-def create_user(username, password):
-    if username_exists(username):
-        return False, "Username already exists. Please choose another."
-    
-    hashed_password = hash_password(password)
-    login_collection.insert_one({"username": username, "password": hashed_password})
-    return True, "Account created successfully!"
-
-# Function to authenticate the user
-def authenticate(username, password):
-    user = login_collection.find_one({"username": username})
-    if user and verify_password(password, user['password']):
-        return True
-    return False
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
@@ -416,16 +389,17 @@ st.title("🐝 Beehive Image Detection and Management")
 # Sidebar for authentication and navigation
 with st.sidebar:
     st.header("Menu")
+    # Tabs for navigation, directly list as options with emojis
     menu_options = [
-        "🔒 Login/Register",
+        "🔒 Login",
         "📸 Object Detection",
         "🗂️ Image Management",
         "📚 Training",
-        "🖼️ Image Validation"
+        "🖼️ Image Validation"  # New Tab for Image Validation
     ]
     selected_tab = st.radio("Navigate to:", menu_options)
 
-Page: Login
+# Page: Login
 if selected_tab == "🔒 Login":
     st.header("🔒 Login Page")
     if 'authenticated' not in st.session_state:
@@ -443,46 +417,6 @@ if selected_tab == "🔒 Login":
                 st.error("Invalid username or password.")
     else:
         st.success("You are already logged in!")
-
-# # Page: Login/Register
-# if selected_tab == "🔒 Login/Register":
-#     st.header("🔒 Login / Register")
-
-#     if 'authenticated' not in st.session_state:
-#         st.session_state.authenticated = False
-
-#     if not st.session_state.authenticated:
-#         st.subheader("Login")
-#         username = st.text_input("Username")
-#         password = st.text_input("Password", type="password")
-
-#         if st.button("Login"):
-#             if authenticate(username, password):
-#                 st.session_state.authenticated = True
-#                 st.success("Authentication successful!")
-#                 st.experimental_rerun()  # Refresh to load the authenticated state
-#             else:
-#                 st.error("Invalid username or password.")
-                
-#         st.subheader("Or Register")
-#         reg_username = st.text_input("New Username")
-#         reg_password = st.text_input("New Password", type="password")
-
-#         if st.button("Register"):
-#             success, message = create_user(reg_username, reg_password)
-#             if success:
-#                 st.success(message)
-#             else:
-#                 st.error(message)
-
-#     else:
-#         st.success("You are already logged in!")
-#         st.write("Please select a section from the menu.")
-        
-#         # Optionally redirect to a different section
-#         if st.button("Go to Object Detection"):
-#             st.session_state.selected_tab = "📸 Object Detection"
-#             st.experimental_rerun()
 
 # Page: Object Detection
 if selected_tab == "📸 Object Detection":
@@ -744,6 +678,3 @@ if selected_tab == "🖼️ Image Validation":
             df.to_html(escape=False, index=False), 
             unsafe_allow_html=True
         )
-
-
-
