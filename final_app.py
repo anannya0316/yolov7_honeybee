@@ -379,6 +379,31 @@ def display_image_details(key, details):
         })
         st.success(f"Classification for {key} updated successfully to {new_classification}.")
 
+# MongoDB Client
+client = MongoClient(MONGODB_URI)
+db = client['humble_bee']
+login_collection = db['login_credentials']
+
+# Function to hash passwords
+def hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+# Function to verify passwords
+def verify_password(password, hashed_password):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
+
+# Function to check if a username exists
+def username_exists(username):
+    return login_collection.find_one({"username": username}) is not None
+
+# Function to create a new user
+def create_user(username, password):
+    if username_exists(username):
+        return False, "Username already exists. Please choose another."
+    
+    hashed_password = hash_password(password)
+    login_collection.insert_one({"username": username, "password": hashed_password})
+    return True, "Account created successfully!"
 
 # Streamlit App
 st.set_page_config(page_title="Beehive Image Detection", page_icon="🐝", layout="wide")
@@ -398,7 +423,7 @@ with st.sidebar:
     ]
     selected_tab = st.radio("Navigate to:", menu_options)
 
-# Page: Login
+# Modified Login System
 if selected_tab == "🔒 Login":
     st.header("🔒 Login Page")
     if 'authenticated' not in st.session_state:
@@ -409,13 +434,50 @@ if selected_tab == "🔒 Login":
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Login"):
-            if authenticate(username, password):
+            user = login_collection.find_one({"username": username})
+            if user and verify_password(password, user["password"]):
                 st.session_state.authenticated = True
                 st.success("Authentication successful!")
             else:
                 st.error("Invalid username or password.")
+                
+                # Option to create new credentials if the login fails
+                if st.checkbox("Create a new account"):
+                    st.write("Create New Account")
+                    new_password = st.text_input("New Password", type="password")
+                    confirm_new_password = st.text_input("Confirm New Password", type="password")
+                    
+                    if st.button("Register"):
+                        if new_password != confirm_new_password:
+                            st.error("Passwords do not match.")
+                        elif len(new_password) < 6:
+                            st.error("Password should be at least 6 characters long.")
+                        else:
+                            success, message = create_user(username, new_password)
+                            if success:
+                                st.success("Account created successfully! Please log in.")
+                            else:
+                                st.error(message)
     else:
         st.success("You are already logged in!")
+# Page: Login
+# if selected_tab == "🔒 Login":
+#     st.header("🔒 Login Page")
+#     if 'authenticated' not in st.session_state:
+#         st.session_state.authenticated = False
+
+#     if not st.session_state.authenticated:
+#         st.subheader("Authentication")
+#         username = st.text_input("Username")
+#         password = st.text_input("Password", type="password")
+#         if st.button("Login"):
+#             if authenticate(username, password):
+#                 st.session_state.authenticated = True
+#                 st.success("Authentication successful!")
+#             else:
+#                 st.error("Invalid username or password.")
+#     else:
+#         st.success("You are already logged in!")
 
 # Page: Object Detection
 if selected_tab == "📸 Object Detection":
