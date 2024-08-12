@@ -592,7 +592,7 @@ if selected_tab == "🖼️ Image Validation":
         # Fetch image validation data from MongoDB
         validation_records = detection_collection.find({})
 
-        # Your existing code for creating the DataFrame and displaying the table
+        # Process and display the data in a table format
         data = []
         for record in validation_records:
             # Skip records with the ID 'qu13edjkbs'
@@ -626,12 +626,14 @@ if selected_tab == "🖼️ Image Validation":
         
             # Constructing the row
             image_filename = record.get('s3_filename')
+            image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
+        
             row = {
                 "Date": uploaded_at,
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": image_filename,
+                "Image file": f"<a href='#' id='{image_filename}'>{image_filename}</a>",
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -645,12 +647,15 @@ if selected_tab == "🖼️ Image Validation":
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
         
-        # Display the DataFrame in Streamlit
-        for index, row in df.iterrows():
-            # Display the row data as a single line
-            st.write(f"**Date:** {row['Date']} | **Uploaded by:** {row['Uploaded by']} | **Image file:** {row['Image file']} | **System Output:** {row['System Output']} | **Validation:** {row['Validation']} | **Expert Output:** {row['Expert Output']} | **Expert Name:** {row['Expert Name']} | **Validated on:** {row['Validated on']} | **Sys Accuracy:** {row['Sys Accuracy']}")
-            
-            # Add a button next to the image filename that when clicked displays the image
-            if st.button(f"View Image: {row['Image file']}", key=row['Image file']):
-                display_image_from_s3(IMAGE_S3_BUCKET_NAME, row['Image file'])
-            st.write("---")  
+        # Display the DataFrame in Streamlit using HTML for the image link
+        st.markdown(
+            df.to_html(escape=False, index=False), 
+            unsafe_allow_html=True
+        )
+        
+        # Add interactive components for images
+        for record in validation_records:
+            image_filename = record.get('s3_filename')
+            if st.button(f"Show Image: {image_filename}", key=image_filename):
+                image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
+                st.image(get_resized_image(image_url), caption=image_filename, use_column_width=False)
