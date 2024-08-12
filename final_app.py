@@ -576,6 +576,10 @@ if selected_tab == "🖼️ Image Validation":
         # Process and display the data in a table format
         data = []
         for record in validation_records:
+            # Skip records with the ID 'qu13edjkbs'
+            if 'qu13edjkbs' in record.get('s3_filename', ''):
+                continue
+        
             # Fetching classification status
             classification_record = classification_collection.find_one({"s3_filename": record.get("s3_filename")})
             validation_status = "Complete" if classification_record else "Pending"
@@ -602,12 +606,15 @@ if selected_tab == "🖼️ Image Validation":
                 system_output = "NA"
         
             # Constructing the row
+            image_filename = record.get('s3_filename')
+            image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
+        
             row = {
                 "Date": uploaded_at,
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"<a href='javascript:void(0);' onclick='showImage(\"{record.get('s3_filename')}\")'>{record.get('s3_filename')}</a>",
+                "Image file": f"<a href='javascript:void(0);' class='image-link' data-url='{image_url}'>{image_filename}</a>",
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -627,16 +634,54 @@ if selected_tab == "🖼️ Image Validation":
             unsafe_allow_html=True
         )
         
-        # JavaScript function to show image in a modal/popup
+        # CSS and JavaScript for Hover Image Pop-up
         st.markdown("""
-        <script type="text/javascript">
-            function showImage(imageKey) {
-                var img = new Image();
-                img.src = "https://s3.amazonaws.com/""" + IMAGE_S3_BUCKET_NAME + """/" + imageKey;
-                var newTab = window.open();
-                newTab.document.write(img.outerHTML);
-            }
+        <style>
+        .image-link {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .image-link:hover::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 120%;
+            z-index: 10;
+            width: 150px;
+            height: auto;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            background: #fff;
+        }
+        
+        .image-link:hover .popup-image {
+            display: block;
+        }
+        .popup-image {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 120%;
+            z-index: 10;
+            width: 150px;
+            height: auto;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            background: #fff;
+        }
+        </style>
+        
+        <script>
+            const imageLinks = document.querySelectorAll('.image-link');
+            imageLinks.forEach(link => {
+                const img = new Image();
+                img.src = link.getAttribute('data-url');
+                img.className = 'popup-image';
+                link.appendChild(img);
+            });
         </script>
         """, unsafe_allow_html=True)
+
         
 
