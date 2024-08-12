@@ -12,7 +12,15 @@ import pandas as pd
 import subprocess
 import shlex
 import sys
+import requests
 
+# Function to fetch image from URL and resize it
+def get_resized_image(url, max_width=150):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content))
+    img.thumbnail((max_width, max_width), Image.ANTIALIAS)
+    return img
+    
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
 IMAGE_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
@@ -573,7 +581,6 @@ if selected_tab == "🖼️ Image Validation":
         # Fetch image validation data from MongoDB
         validation_records = detection_collection.find({})
 
-        # Process and display the data in a table format
         data = []
         for record in validation_records:
             # Skip records with the ID 'qu13edjkbs'
@@ -634,54 +641,12 @@ if selected_tab == "🖼️ Image Validation":
             unsafe_allow_html=True
         )
         
-        # CSS and JavaScript for Hover Image Pop-up
-        st.markdown("""
-        <style>
-        .image-link {
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .image-link:hover::after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 120%;
-            z-index: 10;
-            width: 150px;
-            height: auto;
-            border: 1px solid #ddd;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            background: #fff;
-        }
-        
-        .image-link:hover .popup-image {
-            display: block;
-        }
-        .popup-image {
-            display: none;
-            position: absolute;
-            top: 20px;
-            left: 120%;
-            z-index: 10;
-            width: 150px;
-            height: auto;
-            border: 1px solid #ddd;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            background: #fff;
-        }
-        </style>
-        
-        <script>
-            const imageLinks = document.querySelectorAll('.image-link');
-            imageLinks.forEach(link => {
-                const img = new Image();
-                img.src = link.getAttribute('data-url');
-                img.className = 'popup-image';
-                link.appendChild(img);
-            });
-        </script>
-        """, unsafe_allow_html=True)
+        # Add an interactive component to display the image when hovering
+        for index, row in df.iterrows():
+            with st.expander(row['Image file']):
+                image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{row['Image file'].split('>')[1].split('<')[0]}"
+                st.image(get_resized_image(image_url), caption=row['Image file'].split('>')[1].split('<')[0], use_column_width=False)
+
 
         
 
