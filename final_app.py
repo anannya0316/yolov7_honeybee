@@ -590,29 +590,15 @@ if selected_tab == "🖼️ Image Validation":
     else:
         st.header("🖼️ Image Validation Records")
 
-        # CSS for the hover effect
+        # CSS for the small image display
         st.markdown(
             """
             <style>
-            .popup-img {
-                position: relative;
-                display: inline-block;
-                cursor: pointer;
-            }
-            .popup-img .popup-content {
-                visibility: hidden;
-                width: 300px;
-                background-color: white;
-                border: 1px solid #ddd;
-                box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-                padding: 5px;
-                position: absolute;
-                z-index: 1;
-                top: 20px;
-                left: 105%;
-            }
-            .popup-img:hover .popup-content {
-                visibility: visible;
+            .img-thumbnail {
+                width: 50px; /* Adjust the size as needed */
+                height: auto;
+                margin-right: 10px;
+                vertical-align: middle;
             }
             </style>
             """,
@@ -655,16 +641,14 @@ if selected_tab == "🖼️ Image Validation":
             else:
                 system_output = "NA"
 
-            # Prepare the image display with hover effect
+            # Prepare the image display with the filename
             image_filename = record.get('s3_filename')
             image_url = f"https://{IMAGE_S3_BUCKET_NAME}.s3.amazonaws.com/{image_filename}"
             
-            image_hover_html = f"""
-            <div class="popup-img">
-                <a href="javascript:void(0);" onclick="return false;">{image_filename}</a>
-                <div class="popup-content">
-                    <img src="{image_url}" alt="{image_filename}" width="300"/>
-                </div>
+            image_html = f"""
+            <div>
+                <img src="{image_url}" class="img-thumbnail" alt="{image_filename}"/>
+                {image_filename}
             </div>
             """
 
@@ -674,7 +658,7 @@ if selected_tab == "🖼️ Image Validation":
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": image_hover_html,
+                "Image file": image_html,
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -693,4 +677,5 @@ if selected_tab == "🖼️ Image Validation":
             df.to_html(escape=False, index=False), 
             unsafe_allow_html=True
         )
+
 
