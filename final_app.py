@@ -582,6 +582,8 @@ if selected_tab == "📚 Training":
 
             st.success("Zip file extraction is complete! ")
 
+# ... [rest of the code remains unchanged] ...
+
 # New Page: Image Validation
 if selected_tab == "🖼️ Image Validation":
     if not st.session_state.get('authenticated', False):
@@ -590,30 +592,32 @@ if selected_tab == "🖼️ Image Validation":
         st.header("🖼️ Image Validation Records")
 
         # Fetch image validation data from MongoDB
-        validation_records = detection_collection.find({})
+        validation_records = list(detection_collection.find({}))
 
         # Process and display the data in a table format
         data = []
-        for record in validation_records:
+        image_buttons = {}  # Dictionary to hold buttons and their keys
+
+        for idx, record in enumerate(validation_records):
             # Skip records with the ID 'qu13edjkbs'
             if 'qu13edjkbs' in record.get('s3_filename', ''):
                 continue
-        
+
             # Fetching classification status
             classification_record = classification_collection.find_one({"s3_filename": record.get("s3_filename")})
             validation_status = "Complete" if classification_record else "Pending"
-        
+
             # Fetching the last validation date
             validated_on = classification_record.get("last_modified", "N/A") if classification_record else "N/A"
-        
+
             # Convert timestamps to just dates
             uploaded_at = record.get("uploaded_at", "N/A")
             if isinstance(uploaded_at, datetime):
                 uploaded_at = uploaded_at.strftime('%Y-%m-%d')
-            
+
             if isinstance(validated_on, datetime):
                 validated_on = validated_on.strftime('%Y-%m-%d')
-        
+
             # System Output
             system_output = record.get("detection_results", "NA")
             if isinstance(system_output, list):
@@ -623,17 +627,18 @@ if selected_tab == "🖼️ Image Validation":
                     system_output = "NA"
             else:
                 system_output = "NA"
-        
-            # Constructing the row
+
+            # Prepare a unique key for each button
             image_filename = record.get('s3_filename')
-            image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
-        
+            button_key = f"show_image_{idx}"
+
+            # Constructing the row
             row = {
                 "Date": uploaded_at,
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"<a href='javascript:void(0);' id='{image_filename}'>{image_filename}</a>",
+                "Image file": f"View Image {idx+1}",
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -643,18 +648,28 @@ if selected_tab == "🖼️ Image Validation":
                 "Validate": "VALIDATE" if validation_status == "Pending" else "RE-VALIDATE"
             }
             data.append(row)
-        
+            image_buttons[button_key] = image_filename  # Map button key to image filename
+
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
-        
-        # Display the DataFrame in Streamlit using HTML for the image link
-        st.markdown(
-            df.to_html(escape=False, index=False), 
-            unsafe_allow_html=True
-        )
-        
-        # Add interactive components for images
-        for record in validation_records:
-            image_filename = record.get('s3_filename')
-            if st.button(f"Show Image: {image_filename}", key=image_filename):
-                display_image_from_s3(IMAGE_S3_BUCKET_NAME, image_filename)
+
+        # Display the DataFrame in Streamlit with interactive buttons
+        st.markdown("### Image Validation Table")
+        for i, row in df.iterrows():
+            with st.expander(f"Record {i+1}: {row['Image file']}"):
+                cols = st.columns(len(row))
+                for idx, (col_name, value) in enumerate(row.items()):
+                    if col_name == "Image file":
+                        button_key = list(image_buttons.keys())[i]
+                        if st.button(value, key=button_key):
+                            st.session_state['current_image'] = image_buttons[button_key]
+                    else:
+                        cols[idx].write(f"**{col_name}**: {value}")
+
+        # Display the selected image in a popup-like fashion
+        if 'current_image' in st.session_state:
+            with st.expander("Selected Image", expanded=True):
+                display_image_from_s3(IMAGE_S3_BUCKET_NAME, st.session_state['current_image'])
+                if st.button("Close Image"):
+                    del st.session_state['current_image']
+
