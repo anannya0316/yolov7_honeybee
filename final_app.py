@@ -574,7 +574,6 @@ if selected_tab == "🖼️ Image Validation":
         validation_records = detection_collection.find({})
 
         # Process and display the data in a table format
-        # Process and display the data in a table format
         data = []
         for record in validation_records:
             # Fetching classification status
@@ -583,6 +582,14 @@ if selected_tab == "🖼️ Image Validation":
         
             # Fetching the last validation date
             validated_on = classification_record.get("last_modified", "N/A") if classification_record else "N/A"
+        
+            # Convert timestamps to just dates
+            uploaded_at = record.get("uploaded_at", "N/A")
+            if isinstance(uploaded_at, str) and uploaded_at != "N/A":
+                uploaded_at = uploaded_at.split(' ')[0]  # Assuming the timestamp is in "YYYY-MM-DD HH:MM:SS" format
+            
+            if validated_on != "N/A":
+                validated_on = validated_on.split(' ')[0]  # Assuming the timestamp is in "YYYY-MM-DD HH:MM:SS" format
         
             # System Output
             system_output = record.get("detection_results", "NA")
@@ -596,7 +603,7 @@ if selected_tab == "🖼️ Image Validation":
         
             # Constructing the row
             row = {
-                "Date": record.get("uploaded_at", "N/A"),
+                "Date": uploaded_at,
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
@@ -631,3 +638,4 @@ if selected_tab == "🖼️ Image Validation":
             }
         </script>
         """, unsafe_allow_html=True)
+
