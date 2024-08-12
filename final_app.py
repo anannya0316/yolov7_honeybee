@@ -374,7 +374,8 @@ with st.sidebar:
         "🔒 Login",
         "📸 Object Detection",
         "🗂️ Image Management",
-        "📚 Training"
+        "📚 Training",
+        "🖼️ Image Validation"  # New Tab for Image Validation
     ]
     selected_tab = st.radio("Navigate to:", menu_options)
 
@@ -561,3 +562,42 @@ if selected_tab == "📚 Training":
             #     st.write(file)
 
             st.success("Zip file extraction is complete! ")
+
+# New Page: Image Validation
+if selected_tab == "🖼️ Image Validation":
+    if not st.session_state.get('authenticated', False):
+        st.warning("Please log in to access this page.")
+    else:
+        st.header("🖼️ Image Validation Records")
+
+        # Fetch image validation data from MongoDB
+        validation_records = detection_collection.find({})
+
+        # Process and display the data in a table format
+        data = []
+        for record in validation_records:
+            row = {
+                "Date": record.get("uploaded_at", "N/A"),
+                "Uploaded by": record.get("user_id", "N/A"),
+                "Uploaded via": record.get("uploaded_via", "N/A"),
+                "Location of upload": record.get("location", "N/A"),
+                "Image file": f"[View Image](https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{record.get('s3_filename')})",
+                "System Output": "View",
+                "Validation": record.get("validation_status", "Pending"),
+                "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
+                "Expert Name": record.get("expert_name", "N/A"),
+                "Validated on": record.get("validated_on", "N/A"),
+                "Sys Accuracy": f"{record.get('system_accuracy', 0)}%",
+                "Validate": "VALIDATE" if record.get("validation_status", "Pending") else "RE-VALIDATE"
+            }
+            data.append(row)
+
+        # Convert the list of dictionaries to a DataFrame for display
+        df = pd.DataFrame(data)
+
+        # Display the DataFrame in Streamlit
+        st.table(df)
+
+        # Optional: Implement buttons for validation actions here
+
+
