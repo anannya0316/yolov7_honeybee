@@ -574,22 +574,26 @@ if selected_tab == "🖼️ Image Validation":
         validation_records = detection_collection.find({})
 
         # Process and display the data in a table format
+        # Process and display the data in a table format
         data = []
         for record in validation_records:
             # Fetching classification status
             classification_record = classification_collection.find_one({"s3_filename": record.get("s3_filename")})
             validation_status = "Complete" if classification_record else "Pending"
-
+        
             # Fetching the last validation date
             validated_on = classification_record.get("last_modified", "N/A") if classification_record else "N/A"
-
+        
             # System Output
             system_output = record.get("detection_results", "NA")
-            if system_output == "NA":
-                system_output = "NA"
+            if isinstance(system_output, list):
+                try:
+                    system_output = ", ".join([f"{det.get('label', 'Unknown')}: {det.get('percentage', '0')}%" for det in system_output])
+                except (TypeError, KeyError) as e:
+                    system_output = "NA"
             else:
-                system_output = ", ".join([f"{det['label']}: {det['percentage']}%" for det in system_output])
-
+                system_output = "NA"
+        
             # Constructing the row
             row = {
                 "Date": record.get("uploaded_at", "N/A"),
@@ -606,16 +610,16 @@ if selected_tab == "🖼️ Image Validation":
                 "Validate": "VALIDATE" if validation_status == "Pending" else "RE-VALIDATE"
             }
             data.append(row)
-
+        
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
-
+        
         # Display the DataFrame in Streamlit using HTML for the image link
         st.markdown(
             df.to_html(escape=False, index=False), 
             unsafe_allow_html=True
         )
-
+        
         # JavaScript function to show image in a modal/popup
         st.markdown("""
         <script type="text/javascript">
@@ -627,7 +631,3 @@ if selected_tab == "🖼️ Image Validation":
             }
         </script>
         """, unsafe_allow_html=True)
-
-
-
-
