@@ -425,64 +425,64 @@ with st.sidebar:
     ]
     selected_tab = st.radio("Navigate to:", menu_options)
 
-# Page: Login
-# if selected_tab == "🔒 Login":
-#     st.header("🔒 Login Page")
-#     if 'authenticated' not in st.session_state:
-#         st.session_state.authenticated = False
-
-#     if not st.session_state.authenticated:
-#         st.subheader("Authentication")
-#         username = st.text_input("Username")
-#         password = st.text_input("Password", type="password")
-#         if st.button("Login"):
-#             if authenticate(username, password):
-#                 st.session_state.authenticated = True
-#                 st.success("Authentication successful!")
-#             else:
-#                 st.error("Invalid username or password.")
-#     else:
-#         st.success("You are already logged in!")
-
-# Page: Login/Register
-if selected_tab == "🔒 Login/Register":
-    st.header("🔒 Login / Register")
-
+Page: Login
+if selected_tab == "🔒 Login":
+    st.header("🔒 Login Page")
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.subheader("Login")
+        st.subheader("Authentication")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-
         if st.button("Login"):
             if authenticate(username, password):
                 st.session_state.authenticated = True
                 st.success("Authentication successful!")
-                st.experimental_rerun()  # Refresh to load the authenticated state
             else:
                 st.error("Invalid username or password.")
-                
-        st.subheader("Or Register")
-        reg_username = st.text_input("New Username")
-        reg_password = st.text_input("New Password", type="password")
-
-        if st.button("Register"):
-            success, message = create_user(reg_username, reg_password)
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
-
     else:
         st.success("You are already logged in!")
-        st.write("Please select a section from the menu.")
+
+# # Page: Login/Register
+# if selected_tab == "🔒 Login/Register":
+#     st.header("🔒 Login / Register")
+
+#     if 'authenticated' not in st.session_state:
+#         st.session_state.authenticated = False
+
+#     if not st.session_state.authenticated:
+#         st.subheader("Login")
+#         username = st.text_input("Username")
+#         password = st.text_input("Password", type="password")
+
+#         if st.button("Login"):
+#             if authenticate(username, password):
+#                 st.session_state.authenticated = True
+#                 st.success("Authentication successful!")
+#                 st.experimental_rerun()  # Refresh to load the authenticated state
+#             else:
+#                 st.error("Invalid username or password.")
+                
+#         st.subheader("Or Register")
+#         reg_username = st.text_input("New Username")
+#         reg_password = st.text_input("New Password", type="password")
+
+#         if st.button("Register"):
+#             success, message = create_user(reg_username, reg_password)
+#             if success:
+#                 st.success(message)
+#             else:
+#                 st.error(message)
+
+#     else:
+#         st.success("You are already logged in!")
+#         st.write("Please select a section from the menu.")
         
-        # Optionally redirect to a different section
-        if st.button("Go to Object Detection"):
-            st.session_state.selected_tab = "📸 Object Detection"
-            st.experimental_rerun()
+#         # Optionally redirect to a different section
+#         if st.button("Go to Object Detection"):
+#             st.session_state.selected_tab = "📸 Object Detection"
+#             st.experimental_rerun()
 
 # Page: Object Detection
 if selected_tab == "📸 Object Detection":
