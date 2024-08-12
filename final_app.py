@@ -460,9 +460,10 @@ if selected_tab == "🔒 Login/Register":
             if authenticate(username, password):
                 st.session_state.authenticated = True
                 st.success("Authentication successful!")
+                st.experimental_rerun()  # Refresh to load the authenticated state
             else:
                 st.error("Invalid username or password.")
-        
+                
         st.subheader("Or Register")
         reg_username = st.text_input("New Username")
         reg_password = st.text_input("New Password", type="password")
@@ -473,9 +474,15 @@ if selected_tab == "🔒 Login/Register":
                 st.success(message)
             else:
                 st.error(message)
-                
+
     else:
         st.success("You are already logged in!")
+        st.write("Please select a section from the menu.")
+        
+        # Optionally redirect to a different section
+        if st.button("Go to Object Detection"):
+            st.session_state.selected_tab = "📸 Object Detection"
+            st.experimental_rerun()
 
 # Page: Object Detection
 if selected_tab == "📸 Object Detection":
