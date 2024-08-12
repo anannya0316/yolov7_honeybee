@@ -633,7 +633,7 @@ if selected_tab == "🖼️ Image Validation":
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"<a href='#' id='{image_filename}'>{image_filename}</a>",
+                "Image file": f"<a href='javascript:void(0);' id='{image_filename}'>{image_filename}</a>",
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -657,5 +657,4 @@ if selected_tab == "🖼️ Image Validation":
         for record in validation_records:
             image_filename = record.get('s3_filename')
             if st.button(f"Show Image: {image_filename}", key=image_filename):
-                image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
-                st.image(get_resized_image(image_url), caption=image_filename, use_column_width=False)
+                display_image_from_s3(IMAGE_S3_BUCKET_NAME, image_filename)
