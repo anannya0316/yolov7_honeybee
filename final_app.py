@@ -14,13 +14,6 @@ import shlex
 import sys
 import requests
 
-# Function to fetch image from URL and resize it
-def get_resized_image(url, max_width=150):
-    response = requests.get(url)
-    img = Image.open(BytesIO(response.content))
-    img.thumbnail((max_width, max_width), Image.ANTIALIAS)
-    return img
-    
 # Accessing secrets from Streamlit's secrets.toml
 IMAGE_S3_BUCKET_NAME = st.secrets["aws"]["bucket_name"]
 IMAGE_S3_ACCESS_KEY = st.secrets["aws"]["access_key"]
@@ -41,6 +34,24 @@ s3_client = boto3.client(
     aws_secret_access_key=IMAGE_S3_SECRET_KEY,
     region_name=IMAGE_S3_REGION_NAME
 )
+
+# Function to fetch image from URL and resize it
+def get_resized_image(url, max_width=150):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content))
+    img.thumbnail((max_width, max_width), Image.ANTIALIAS)
+    return img
+    
+# Function to fetch image from S3
+def fetch_image_from_s3(bucket_name, key):
+    response = s3_client.get_object(Bucket=bucket_name, Key=key)
+    return response['Body'].read()
+
+# Function to display image from S3
+def display_image_from_s3(bucket_name, key):
+    image_data = fetch_image_from_s3(bucket_name, key)
+    img = Image.open(BytesIO(image_data))
+    st.image(img, caption=f"Image: {key}", use_column_width=False, width=150)  # Keep the image small
 
 # Authentication
 def authenticate(username, password):
@@ -614,14 +625,12 @@ if selected_tab == "🖼️ Image Validation":
         
             # Constructing the row
             image_filename = record.get('s3_filename')
-            image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{image_filename}"
-        
             row = {
                 "Date": uploaded_at,
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"<a href='javascript:void(0);' class='image-link' data-url='{image_url}'>{image_filename}</a>",
+                "Image file": image_filename,  # Will add a clickable link below
                 "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
@@ -635,17 +644,12 @@ if selected_tab == "🖼️ Image Validation":
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
         
-        # Display the DataFrame in Streamlit using HTML for the image link
-        st.markdown(
-            df.to_html(escape=False, index=False), 
-            unsafe_allow_html=True
-        )
-        
-        # Add an interactive component to display the image when hovering
+        # Display the DataFrame
         for index, row in df.iterrows():
-            with st.expander(row['Image file']):
-                image_url = f"https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{row['Image file'].split('>')[1].split('<')[0]}"
-                st.image(get_resized_image(image_url), caption=row['Image file'].split('>')[1].split('<')[0], use_column_width=False)
+            st.write(f"**Date:** {row['Date']} | **Uploaded by:** {row['Uploaded by']} | **Image file:**")
+            if st.button(row['Image file']):
+                display_image_from_s3(IMAGE_S3_BUCKET_NAME, row['Image file'])
+            st.write("---")
 
 
         
