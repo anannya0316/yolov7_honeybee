@@ -585,11 +585,11 @@ if selected_tab == "🖼️ Image Validation":
         
             # Convert timestamps to just dates
             uploaded_at = record.get("uploaded_at", "N/A")
-            if isinstance(uploaded_at, str) and uploaded_at != "N/A":
-                uploaded_at = uploaded_at.split(' ')[0]  # Assuming the timestamp is in "YYYY-MM-DD HH:MM:SS" format
+            if isinstance(uploaded_at, datetime):
+                uploaded_at = uploaded_at.strftime('%Y-%m-%d')
             
-            if validated_on != "N/A":
-                validated_on = validated_on.split(' ')[0]  # Assuming the timestamp is in "YYYY-MM-DD HH:MM:SS" format
+            if isinstance(validated_on, datetime):
+                validated_on = validated_on.strftime('%Y-%m-%d')
         
             # System Output
             system_output = record.get("detection_results", "NA")
@@ -638,4 +638,5 @@ if selected_tab == "🖼️ Image Validation":
             }
         </script>
         """, unsafe_allow_html=True)
+        
 
