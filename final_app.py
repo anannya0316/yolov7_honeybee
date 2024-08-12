@@ -583,14 +583,21 @@ if selected_tab == "🖼️ Image Validation":
             # Fetching the last validation date
             validated_on = classification_record.get("last_modified", "N/A") if classification_record else "N/A"
 
+            # System Output
+            system_output = record.get("detection_results", "NA")
+            if system_output == "NA":
+                system_output = "NA"
+            else:
+                system_output = ", ".join([f"{det['label']}: {det['percentage']}%" for det in system_output])
+
             # Constructing the row
             row = {
                 "Date": record.get("uploaded_at", "N/A"),
                 "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"[{record.get('s3_filename', 'Image')}](#)",
-                "System Output": record.get("detection_results", "NA"),
+                "Image file": f"<a href='javascript:void(0);' onclick='showImage(\"{record.get('s3_filename')}\")'>{record.get('s3_filename')}</a>",
+                "System Output": system_output,
                 "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
                 "Expert Name": record.get("expert_name", "N/A"),
@@ -603,21 +610,24 @@ if selected_tab == "🖼️ Image Validation":
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
 
-        # Function to show image in a modal/popup
-        def show_image_modal(image_key):
-            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, image_key)
-            img = Image.open(BytesIO(image_data))
-            st.image(img, caption=f"Image: {image_key}", use_column_width=True)
+        # Display the DataFrame in Streamlit using HTML for the image link
+        st.markdown(
+            df.to_html(escape=False, index=False), 
+            unsafe_allow_html=True
+        )
 
-        # Add image popup functionality
-        for index, row in df.iterrows():
-            if st.button(row['Image file'], key=f"image_{index}"):
-                show_image_modal(row['Image file'].split('[')[1].split(']')[0])
+        # JavaScript function to show image in a modal/popup
+        st.markdown("""
+        <script type="text/javascript">
+            function showImage(imageKey) {
+                var img = new Image();
+                img.src = "https://s3.amazonaws.com/""" + IMAGE_S3_BUCKET_NAME + """/" + imageKey;
+                var newTab = window.open();
+                newTab.document.write(img.outerHTML);
+            }
+        </script>
+        """, unsafe_allow_html=True)
 
-        # Display the DataFrame in Streamlit
-        st.table(df)
-
-        # Optional: Implement buttons for validation actions here
 
 
 
