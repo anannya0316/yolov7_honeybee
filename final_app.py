@@ -582,7 +582,6 @@ if selected_tab == "📚 Training":
 
             st.success("Zip file extraction is complete! ")
 
-
 # New Page: Image Validation
 if selected_tab == "🖼️ Image Validation":
     if not st.session_state.get('authenticated', False):
@@ -645,10 +644,11 @@ if selected_tab == "🖼️ Image Validation":
             image_filename = record.get('s3_filename')
             image_url = f"https://{IMAGE_S3_BUCKET_NAME}.s3.amazonaws.com/{image_filename}"
             
+            # Creating HTML for the image and filename
             image_html = f"""
-            <div>
+            <div style="display: flex; align-items: center;">
                 <img src="{image_url}" class="img-thumbnail" alt="{image_filename}"/>
-                {image_filename}
+                <span>{image_filename}</span>
             </div>
             """
 
@@ -677,5 +677,6 @@ if selected_tab == "🖼️ Image Validation":
             df.to_html(escape=False, index=False), 
             unsafe_allow_html=True
         )
+
 
 
