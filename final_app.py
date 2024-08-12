@@ -576,28 +576,48 @@ if selected_tab == "🖼️ Image Validation":
         # Process and display the data in a table format
         data = []
         for record in validation_records:
+            # Fetching classification status
+            classification_record = classification_collection.find_one({"s3_filename": record.get("s3_filename")})
+            validation_status = "Complete" if classification_record else "Pending"
+
+            # Fetching the last validation date
+            validated_on = classification_record.get("last_modified", "N/A") if classification_record else "N/A"
+
+            # Constructing the row
             row = {
                 "Date": record.get("uploaded_at", "N/A"),
-                "Uploaded by": record.get("user_id", "N/A"),
+                "Uploaded by": record.get("userid", "N/A"),
                 "Uploaded via": record.get("uploaded_via", "N/A"),
                 "Location of upload": record.get("location", "N/A"),
-                "Image file": f"[View Image](https://s3.amazonaws.com/{IMAGE_S3_BUCKET_NAME}/{record.get('s3_filename')})",
-                "System Output": "View",
-                "Validation": record.get("validation_status", "Pending"),
+                "Image file": f"[{record.get('s3_filename', 'Image')}](#)",
+                "System Output": record.get("detection_results", "NA"),
+                "Validation": validation_status,
                 "Expert Output": "View" if record.get("expert_validated", False) else "Pending",
                 "Expert Name": record.get("expert_name", "N/A"),
-                "Validated on": record.get("validated_on", "N/A"),
+                "Validated on": validated_on,
                 "Sys Accuracy": f"{record.get('system_accuracy', 0)}%",
-                "Validate": "VALIDATE" if record.get("validation_status", "Pending") else "RE-VALIDATE"
+                "Validate": "VALIDATE" if validation_status == "Pending" else "RE-VALIDATE"
             }
             data.append(row)
 
         # Convert the list of dictionaries to a DataFrame for display
         df = pd.DataFrame(data)
 
+        # Function to show image in a modal/popup
+        def show_image_modal(image_key):
+            image_data = fetch_image_from_s3(IMAGE_S3_BUCKET_NAME, image_key)
+            img = Image.open(BytesIO(image_data))
+            st.image(img, caption=f"Image: {image_key}", use_column_width=True)
+
+        # Add image popup functionality
+        for index, row in df.iterrows():
+            if st.button(row['Image file'], key=f"image_{index}"):
+                show_image_modal(row['Image file'].split('[')[1].split(']')[0])
+
         # Display the DataFrame in Streamlit
         st.table(df)
 
         # Optional: Implement buttons for validation actions here
+
 
 
